@@ -90,7 +90,7 @@ int main() {
                 // 状态机转换与字符更新
                 if (screen[y][x].state == STATE_HASH) {
                     // 每一帧有一定概率让 # 塌陷成乱跳的代码
-                    if (rand() % 100 < 8) { 
+                    if (rand() % 100 < 15) { 
                         screen[y][x].state = STATE_CODE;
                         screen[y][x].current_char = get_random_code_char();
                         move_cursor(x, y);
@@ -124,3 +124,48 @@ int main() {
     reset_terminal();
     return 0;
 }
+
+// 主动画循环（修复速度不均匀版）
+    while (active_cells > 0) {
+        
+        // ----------------------------------------------------
+        // 第一阶段：纯逻辑更新（全屏所有点在这一帧的状态同时决定）
+        // ----------------------------------------------------
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                if (screen[y][x].state == STATE_SPACE) continue;
+
+                if (screen[y][x].state == STATE_HASH) {
+                    if (rand() % 100 < 30) { 
+                        screen[y][x].state = STATE_CODE;
+                        screen[y][x].current_char = get_random_code_char();
+                    }
+                } 
+                else if (screen[y][x].state == STATE_CODE) {
+                    screen[y][x].code_timer--;
+                    if (screen[y][x].code_timer <= 0) {
+                        screen[y][x].state = STATE_SPACE;
+                        screen[y][x].current_char = ' ';
+                        active_cells--;
+                    } else {
+                        screen[y][x].current_char = get_random_code_char();
+                    }
+                }
+            }
+        }
+
+        // ----------------------------------------------------
+        // 第二阶段：统一渲染（把刚刚算好的结果一次性输出）
+        // ----------------------------------------------------
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                // 注意：这里为了极致性能，也可以只打印没变成 STATE_SPACE 的点
+                // 但为了防止之前的残影，我们依然精准覆盖
+                move_cursor(x, y);
+                putchar(screen[y][x].current_char);
+            }
+        }
+        
+        fflush(stdout); // 此时刷新，全屏同步！
+        SLEEP_MS(8);   // 所有字符平等享受这 8 毫秒的停留时间
+    }
