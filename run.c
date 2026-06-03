@@ -1,32 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <time.h>
+#include <conio.h>
 
-#ifdef _WIN32
-    #include <windows.h>
-    #define SLEEP_MS(ms) Sleep(ms)
-#else
-    #include <unistd.h>
-    #define SLEEP_MS(ms) usleep((ms) * 1000)
-#endif
+#include "global.h"
+#include "scenes/scene.h"
 
-// 定义终端尺寸（可以根据需要调整，或者动态获取）
-#define WIDTH 80
-#define HEIGHT 24
 
-// 定义点的状态
-typedef enum {
-    STATE_HASH,   // 全部是 #
-    STATE_CODE,   // 乱跳的代码
-    STATE_SPACE   // 变成空格
-} PointState;
-
-typedef struct {
-    char current_char;
-    PointState state;
-    int code_timer; // 控制乱跳代码持续的帧数
-} Cell;
 
 // 清屏并隐藏光标
 void init_terminal() {
@@ -35,137 +15,154 @@ void init_terminal() {
     fflush(stdout);
 }
 
+
 // 恢复光标显示
 void reset_terminal() {
-    printf("\033[?25h");   // 显示光标
-    printf("\033[%d;1H\n", HEIGHT + 1); // 移动到屏幕下方
+    printf("\033[?25h");  // 显示光标
+    printf("\033[%d;1H\n", user_config.height + 1);  // 移动到屏幕下方
     fflush(stdout);
 }
 
-// 精准移动光标到 (x, y) 坐标 (注意：ANSI从1开始计数)
+
+// 获取终端尺寸
+void get_terminal_size(int *width, int *height)
+{
+#ifdef _WIN32
+
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+
+    GetConsoleScreenBufferInfo(
+        GetStdHandle(STD_OUTPUT_HANDLE),
+        &csbi
+    );
+
+    *width =
+        csbi.srWindow.Right -
+        csbi.srWindow.Left + 1;
+
+    *height =
+        csbi.srWindow.Bottom -
+        csbi.srWindow.Top + 1;
+
+#else
+
+    struct winsize ws;
+
+    ioctl(
+        STDOUT_FILENO,
+        TIOCGWINSZ,
+        &ws
+    );
+
+    *width = ws.ws_col;
+    *height = ws.ws_row;
+
+#endif
+}
+
+
+// 读取用户数据
+Config user_config;
+int config_init(void)
+{
+    FILE *fp = fopen("D:\\Home\\Programming\\c\\Tamithm\\userdata", "r");
+    if(fp == NULL)
+        return -1;
+
+    fscanf(fp, "fps %d",
+           &user_config.fps);
+    fclose(fp);
+    return 0;
+}
+
+
+// 移动光标到 (x, y) 坐标 (注意：ANSI从1开始计数)
 void move_cursor(int x, int y) {
     printf("\033[%d;%dH", y + 1, x + 1);
 }
 
-// 随机生成一个“乱跳代码”字符
-char get_random_code_char() {
-    // 选用一些看起来像代码或机器码的可见字符
-    const char code_pool[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()_+-=";
-    int size = sizeof(code_pool) - 1;
-    return code_pool[rand() % size];
+
+// 初始化屏幕缓冲区
+void screen_init() {
+    screen.buffer = (char ***)malloc(user_config.height * sizeof(char **));
+    for (int i = 0; i < user_config.height; i++)
+    {
+        screen.buffer[i] = (char **)malloc(user_config.width * sizeof(char *));
+        for (int j = 0; j < user_config.width; j++)
+        {
+            screen.buffer[i][j] = " ";
+        }
+    }
 }
 
+
+// 释放屏幕缓冲区
+void screen_free() {
+    for (int i = 0; i < user_config.height; i++)
+    {
+        free(screen.buffer[i]);
+    }
+    free(screen.buffer);
+}
+
+
+// 主进程
+Screen screen;
+GameState game_state;
 int main() {
-    srand((unsigned int)time(NULL));
-    init_terminal();
 
-    Cell screen[HEIGHT][WIDTH];
-    int active_cells = WIDTH * HEIGHT;
-
-    // 初始化：全屏幕满载 '#'
-    for (int y = 0; y < HEIGHT; y++) {
-        for (int x = 0; x < WIDTH; x++) {
-            screen[y][x].current_char = '#';
-            screen[y][x].state = STATE_HASH;
-            // 每个点乱跳的持续帧数随机，这样才会有交错渐变的效果
-            screen[y][x].code_timer = 10 + rand() % 20; 
-            
-            // 初始打印满屏 #
-            move_cursor(x, y);
-            putchar('#');
-        }
+    // ------------初始化------------
+    int ret = config_init();  // 初始化用户设置
+    if (ret == -1)
+    {
+        printf("Error: 无法读取userdata文件\n");
+        return -1;
     }
-    fflush(stdout);
-    SLEEP_MS(500); // 满屏 # 稍微停留一下下
+    init_terminal();  // 初始化终端
+    
+    get_terminal_size(&user_config.width, &user_config.height);  // 获取终端尺寸
+    screen_init();  // 初始化屏幕缓冲区
+    game_state = STATE_WELCOME;  // 展示欢迎界面
+    // ------------------------------
 
-    // 主动画循环
-    while (active_cells > 0) {
-        for (int y = 0; y < HEIGHT; y++) {
-            for (int x = 0; x < WIDTH; x++) {
-                // 如果已经是空格，说明该点动画结束，跳过
-                if (screen[y][x].state == STATE_SPACE) {
-                    continue;
-                }
 
-                // 状态机转换与字符更新
-                if (screen[y][x].state == STATE_HASH) {
-                    // 每一帧有一定概率让 # 塌陷成乱跳的代码
-                    if (rand() % 100 < 15) { 
-                        screen[y][x].state = STATE_CODE;
-                        screen[y][x].current_char = get_random_code_char();
-                        move_cursor(x, y);
-                        putchar(screen[y][x].current_char);
-                    }
-                } 
-                else if (screen[y][x].state == STATE_CODE) {
-                    screen[y][x].code_timer--;
-                    
-                    if (screen[y][x].code_timer <= 0) {
-                        // 计时结束，变成空格
-                        screen[y][x].state = STATE_SPACE;
-                        screen[y][x].current_char = ' ';
-                        active_cells--; // 剩余活跃点减少
-                    } else {
-                        // 还在乱跳期间，持续变换字符
-                        screen[y][x].current_char = get_random_code_char();
-                    }
-                    
-                    // 局部刷新
-                    move_cursor(x, y);
-                    putchar(screen[y][x].current_char);
-                }
-            }
+    // 主程序入口
+    while(game_state != STATE_EXIT) {
+        // 键盘输入
+        if (_kbhit())
+        {
+            char key = _getch();
         }
-        
-        fflush(stdout); // 刷新标准输出缓冲区，让画面同时呈现
-        SLEEP_MS(30);   // 控制帧率，大约每秒 30 帧
+
+        // 页面状态机
+        switch(game_state)
+        {
+            case STATE_WELCOME:
+                get_terminal_size(&user_config.width, &user_config.height);
+                screen_init();
+                update_welcome_ui();
+                if (_kbhit())
+                {
+                    game_state = STATE_SONG_SELECT;
+                }
+                break;
+
+            case STATE_SONG_SELECT:
+                break;
+
+            case STATE_PLAYING:
+                break;
+
+            case STATE_PAUSE:
+                break;
+
+            case STATE_RESULT:
+                break;
+        }
+
     }
 
-    reset_terminal();
+    screen_free();  // 释放屏幕缓冲区
+    reset_terminal();  // 释放终端
     return 0;
 }
-
-// 主动画循环（修复速度不均匀版）
-    while (active_cells > 0) {
-        
-        // ----------------------------------------------------
-        // 第一阶段：纯逻辑更新（全屏所有点在这一帧的状态同时决定）
-        // ----------------------------------------------------
-        for (int y = 0; y < HEIGHT; y++) {
-            for (int x = 0; x < WIDTH; x++) {
-                if (screen[y][x].state == STATE_SPACE) continue;
-
-                if (screen[y][x].state == STATE_HASH) {
-                    if (rand() % 100 < 30) { 
-                        screen[y][x].state = STATE_CODE;
-                        screen[y][x].current_char = get_random_code_char();
-                    }
-                } 
-                else if (screen[y][x].state == STATE_CODE) {
-                    screen[y][x].code_timer--;
-                    if (screen[y][x].code_timer <= 0) {
-                        screen[y][x].state = STATE_SPACE;
-                        screen[y][x].current_char = ' ';
-                        active_cells--;
-                    } else {
-                        screen[y][x].current_char = get_random_code_char();
-                    }
-                }
-            }
-        }
-
-        // ----------------------------------------------------
-        // 第二阶段：统一渲染（把刚刚算好的结果一次性输出）
-        // ----------------------------------------------------
-        for (int y = 0; y < HEIGHT; y++) {
-            for (int x = 0; x < WIDTH; x++) {
-                // 注意：这里为了极致性能，也可以只打印没变成 STATE_SPACE 的点
-                // 但为了防止之前的残影，我们依然精准覆盖
-                move_cursor(x, y);
-                putchar(screen[y][x].current_char);
-            }
-        }
-        
-        fflush(stdout); // 此时刷新，全屏同步！
-        SLEEP_MS(8);   // 所有字符平等享受这 8 毫秒的停留时间
-    }
