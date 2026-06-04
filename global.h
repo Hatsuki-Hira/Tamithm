@@ -40,7 +40,13 @@ extern GameState game_state;
 // 字符缓冲区
 typedef struct
 {
-    char ***buffer;
+    char ch;
+    unsigned int color;
+
+} Cell;
+typedef struct
+{
+    Cell **buffer;
 } Screen;
 extern Screen screen;
 

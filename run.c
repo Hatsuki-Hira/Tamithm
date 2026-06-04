@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <time.h>
 #include <conio.h>
 
@@ -84,14 +83,19 @@ void move_cursor(int x, int y) {
 
 // 初始化屏幕缓冲区
 void screen_init() {
-    screen.buffer = (char ***)malloc(user_config.height * sizeof(char **));
-    for (int i = 0; i < user_config.height; i++)
+// buffer单独存字符串时用的，已废弃
+//    screen.buffer = (char **)malloc(user_config.height * sizeof(char *));
+//    for (int i = 0; i < user_config.height; i++)
+//    {
+//        screen.buffer[i] = (char *)malloc(user_config.width * sizeof(char));
+//    }
+    screen.buffer =
+        malloc(user_config.height * sizeof(Cell*));
+
+    for(int y=0;y<user_config.height;y++)
     {
-        screen.buffer[i] = (char **)malloc(user_config.width * sizeof(char *));
-        for (int j = 0; j < user_config.width; j++)
-        {
-            screen.buffer[i][j] = " ";
-        }
+        screen.buffer[y] =
+            malloc(user_config.width * sizeof(Cell));
     }
 }
 
