@@ -28,6 +28,7 @@ typedef enum {
     STATE_WELCOME,     // 欢迎动画
     STATE_MENU,        // 主菜单
     STATE_SONG_SELECT, // 选歌
+    STATE_SETTING,     // 设置界面
     STATE_LOADING,     // 加载谱面
     STATE_PLAYING,     // 游戏中
     STATE_PAUSE,       // 暂停
@@ -51,6 +52,5 @@ typedef struct
 extern Screen screen;
 
 
-// 移动光标
-void move_cursor(int x, int y);
-
+void screen_resize_detect();
+void screen_clear();
