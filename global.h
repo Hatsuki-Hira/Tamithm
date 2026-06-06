@@ -50,7 +50,3 @@ typedef struct
     Cell **buffer;
 } Screen;
 extern Screen screen;
-
-
-void screen_resize_detect();
-void screen_clear();

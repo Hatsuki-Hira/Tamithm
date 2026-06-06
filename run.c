@@ -3,6 +3,7 @@
 #include <conio.h>
 
 #include "global.h"
+#include "data/renderer.h"
 #include "scenes/scenes.h"
 
 
@@ -75,17 +76,6 @@ int config_init(void)
 }
 
 
-// 清空屏幕缓冲区（全设为黑底空格）
-void screen_clear() {
-    Cell empty = {' ', 40};
-    for (int y = 0; y < user_config.height; y++) {
-        for (int x = 0; x < user_config.width; x++) {
-            screen.buffer[y][x] = empty;
-        }
-    }
-}
-
-
 // 初始化屏幕缓冲区
 void screen_init() {
 // buffer单独存字符串时用的，已废弃
@@ -129,42 +119,6 @@ void screen_free() {
 }
 
 
-// 屏幕尺寸变化
-int last_width = 0;
-int last_height = 0;
-void screen_resize_detect() {
-    int new_width;
-    int new_height;
-
-    get_terminal_size(
-        &new_width,
-        &new_height
-    );
-
-    // 校验：防止缩放过程中返回无效或极端尺寸
-    if (new_width < 10) new_width = 10;
-    if (new_height < 5) new_height = 5;
-    if (new_width > 500) new_width = 500;    // 防止极端值导致 malloc 失败
-    if (new_height > 200) new_height = 200;
-
-    if(new_width != last_width ||
-       new_height != last_height)
-    {
-        if(screen.buffer != NULL)
-            screen_free();
-
-        user_config.width = new_width;
-        user_config.height = new_height;
-
-        screen_init();
-
-        last_width = new_width;
-        last_height = new_height;
-
-        printf("\033[2J"); // 尺寸变化后彻底清屏
-    }
-}
-
 
 // 主进程
 Screen screen;
@@ -178,11 +132,9 @@ int main() {
         printf("Error: 无法读取userdata文件\n");
         return -1;
     }
+
     init_terminal();  // 初始化终端
-    
     get_terminal_size(&user_config.width, &user_config.height);  // 获取终端尺寸
-    last_width = user_config.width;    //初始化，防止首次误触发
-    last_height = user_config.height;  //
     screen_init();  // 初始化屏幕缓冲区
     // 展示欢迎界面
     update_welcome_ui0();
@@ -192,15 +144,14 @@ int main() {
 
     // 主程序入口
     while(game_state != STATE_EXIT) {
-        screen_resize_detect();
-        // 页面状态机
+        // 页面切换状态机
         switch(game_state)
         {
             case STATE_WELCOME:
-            update_welcome_ui1();
                 if (_kbhit())  // 键盘输入
                 {
-                    update_welcome_ui2();
+                    screen_clear();
+                    render(0);
                     game_state = STATE_SONG_SELECT;
                 }
                 break;
