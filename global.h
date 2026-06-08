@@ -73,3 +73,29 @@ extern char chart_full_path[256];  // 谱面目录绝对路径
 extern int selected_chart_num;  // 选歌界面当前歌曲序号
 
 void load_charts(void);
+
+typedef struct
+{
+    char title[128];
+    char creator[64];
+    char difficulty[64];
+
+    int keys;
+} ChartInfo;
+extern ChartInfo chart_info;
+
+typedef enum
+{
+    NOTE_TAP,
+    NOTE_HOLD;
+} NoteType;
+
+typedef struct
+{
+    NoteType type;
+
+    int lane;
+
+    int start_time;
+    int end_time;
+} Note;

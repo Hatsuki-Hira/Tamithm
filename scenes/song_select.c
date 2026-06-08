@@ -130,6 +130,18 @@ void update_song_select_bar(void) {
 
 
 
+void get_charts_info(void) {
+    if (strncmp(line, "TitleUnicode", 13) == 0)
+        strcpy(title, line + 13);
+}
+
+
+
+void screen_draw_preview(int position[2][2]) {
+    
+}
+
+
 
 // 选歌页面的输入处理
 void handle_song_select_input(void) {
