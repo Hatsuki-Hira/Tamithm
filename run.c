@@ -8,57 +8,50 @@
 
 
 
-// 清屏并隐藏光标
-void init_terminal() {
-    printf("\033[2J");    // 清屏
-    printf("\033[?25l");   // 隐藏光标
-    fflush(stdout);
+
+// 谱面列表（全局变量定义）
+int chart_count = 0;
+char chart_names[MAX_CHARTS][CHART_NAME_MAX];
+int selected_chart_num = 0;  // 选歌界面当前歌曲
+
+
+
+// 扫描 charts 目录，加载所有 .osu 文件名
+void load_charts(void) {
+    WIN32_FIND_DATAW find_data;
+    HANDLE hFind = FindFirstFileW(L"charts\\*.osu", &find_data);
+
+    chart_count = 0;
+
+    if (hFind == INVALID_HANDLE_VALUE)
+        return;  // 目录为空或不存在
+
+    do {
+        // 将 UTF-16 文件名转换为 UTF-8
+        int len_utf8 = WideCharToMultiByte(
+            CP_UTF8, 0,
+            find_data.cFileName, -1,
+            NULL, 0, NULL, NULL
+        );
+        if (len_utf8 > 0) {
+            WideCharToMultiByte(
+                CP_UTF8, 0,
+                find_data.cFileName, -1,
+                chart_names[chart_count], len_utf8,
+                NULL, NULL
+            );
+            // 去掉末尾的 ".osu" 扩展名
+            size_t len = strlen(chart_names[chart_count]);
+            if (len > 4 && strcmp(chart_names[chart_count] + len - 4, ".osu") == 0)
+                chart_names[chart_count][len - 4] = '\0';
+        }
+
+        chart_count++;
+    } while (FindNextFileW(hFind, &find_data) && chart_count < MAX_CHARTS);
+
+    FindClose(hFind);
 }
 
-
-// 恢复光标显示
-void reset_terminal() {
-    printf("\033[?25h");  // 显示光标
-    printf("\033[%d;1H\n", user_config.height + 1);  // 移动到屏幕下方
-    fflush(stdout);
-}
-
-
-// 获取终端尺寸
-void get_terminal_size(int *width, int *height)
-{
-#ifdef _WIN32
-
-    CONSOLE_SCREEN_BUFFER_INFO csbi;
-
-    GetConsoleScreenBufferInfo(
-        GetStdHandle(STD_OUTPUT_HANDLE),
-        &csbi
-    );
-
-    *width =
-        csbi.srWindow.Right -
-        csbi.srWindow.Left + 1;
-
-    *height =
-        csbi.srWindow.Bottom -
-        csbi.srWindow.Top;  // 不+1，保留最下面一行防止自动滚屏
-
-#else
-
-    struct winsize ws;
-
-    ioctl(
-        STDOUT_FILENO,
-        TIOCGWINSZ,
-        &ws
-    );
-
-    *width = ws.ws_col;
-    *height = ws.ws_row;
-
-#endif
-}
 
 
 // 读取用户数据
@@ -69,54 +62,22 @@ int config_init(void)
     if(fp == NULL)
         return -1;
 
-    fscanf(fp, "fps %d",
-           &user_config.fps);
+    fscanf(fp, "fps=%d\n", &user_config.fps);
+    fscanf(fp, "language=%s", &user_config.language);
+
     fclose(fp);
     return 0;
 }
 
 
-// 初始化屏幕缓冲区
-void screen_init() {
-// buffer单独存字符串时用的，已废弃
-//    screen.buffer = (char **)malloc(user_config.height * sizeof(char *));
-//    for (int i = 0; i < user_config.height; i++)
-//    {
-//        screen.buffer[i] = (char *)malloc(user_config.width * sizeof(char));
-//    }
-    screen.buffer =
-        malloc(user_config.height * sizeof(Cell*));
 
-    if (screen.buffer == NULL) {
-        fprintf(stderr, "Error: screen buffer allocation failed\n");
-        exit(1);
-    }
-
-    for(int y=0;y<user_config.height;y++)
-    {
-        screen.buffer[y] =
-            malloc(user_config.width * sizeof(Cell));
-        if (screen.buffer[y] == NULL) {
-            fprintf(stderr, "Error: screen buffer row allocation failed\n");
-            exit(1);
-        }
-    }
-
-    screen_clear();  // ← 新分配的缓冲区全部清零
+char chart_full_path[256];
+// 获取 charts 目录的绝对路径
+void get_charts_path(char *out, int out_size) {
+    char rel[64] = "charts\\";
+    GetFullPathName(rel, out_size, out, NULL);
 }
 
-
-// 释放屏幕缓冲区
-void screen_free() {
-    if (screen.buffer == NULL) return;
-    for (int i = 0; i < user_config.height; i++)
-    {
-        if (screen.buffer[i] != NULL)
-            free(screen.buffer[i]);
-    }
-    free(screen.buffer);
-    screen.buffer = NULL;  // 防止悬空指针
-}
 
 
 
@@ -125,7 +86,7 @@ Screen screen;
 GameState game_state;
 int main() {
 
-    // ------------初始化------------
+    // ----------------初始化----------------
     int ret = config_init();  // 初始化用户设置
     if (ret == -1)
     {
@@ -136,10 +97,15 @@ int main() {
     init_terminal();  // 初始化终端
     get_terminal_size(&user_config.width, &user_config.height);  // 获取终端尺寸
     screen_init();  // 初始化屏幕缓冲区
+    init_song_select_windows();  //初始化选歌界面的布局
+
+    // 谱面初始化
+    load_charts();  // 加载谱面列表
+    get_charts_path(chart_full_path, sizeof(chart_full_path));
+    // -----------------------------------
+
     // 展示欢迎界面
-    update_welcome_ui0();
     game_state = STATE_WELCOME;
-    // ------------------------------
 
 
     // 主程序入口
@@ -148,18 +114,13 @@ int main() {
         switch(game_state)
         {
             case STATE_WELCOME:
-                if (_kbhit())  // 键盘输入
-                {
-                    screen_clear();
-                    render(0);
-                    game_state = STATE_SONG_SELECT;
-                }
+                update_welcome_ui();
+                handle_welcome_input();
                 break;
 
             case STATE_SONG_SELECT:
-                //screen_free();
-                //get_terminal_size(&user_config.width, &user_config.height);
-                //screen_init();
+                update_song_select_bar();
+                handle_song_select_input();
                 break;
 
             case STATE_PLAYING:

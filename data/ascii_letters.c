@@ -372,7 +372,7 @@ const char ch_Z[4][5] = {
 };
 
 // 显示单个大字体字符
-void display_char(int x, int y, char ch, int color) {
+void display_char(int x, int y, char ch, int fg_color, int bg_color) {
     const void *pattern = NULL;
     int width = 0;
     
@@ -447,18 +447,18 @@ void display_char(int x, int y, char ch, int color) {
             // 计算在行中的位置（考虑行步长）
             char pixel = data[row * (width + 1) + col];  // width+1 是因为有null终止符
             if (pixel == '1') {
-                screen_set_cell(y + row, x + col, ' ', color);
+                screen_set_cell(y + row, x + col, " ", fg_color, bg_color);
             }
         }
     }
 }
 
 // 显示字符串
-void display_text(int x, int y, const char *text, int color) {
+void display_text(int x, int y, const char *text, int fg_color, int bg_color) {
     int current_x = x;
     
     for (int i = 0; text[i] != '\0'; i++) {
-        display_char(current_x, y, text[i], color);
+        display_char(current_x, y, text[i], fg_color, bg_color);
         
         // 计算下一个字符的 x 位置（加上间距）
         int width = 4;
