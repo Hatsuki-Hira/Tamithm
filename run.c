@@ -176,6 +176,10 @@ int main() {
             case STATE_PLAYING:
                 // 初始化
                 if (game_start_time == 0) {
+                    // 播放音频
+                    audio_init();
+                    audio_play();
+
                     reset_playing_state();  // 重置打击索引
                     for (int i = 0; i < chart_note_count; i++) {
                         chart_notes[i].hit = 0;
@@ -188,8 +192,6 @@ int main() {
                     score_miss = 0;
                     combo = 0;
                     max_combo = 0;
-                    audio_init();
-                    audio_play();  // 播放音频
                 }
                 // 游戏逻辑更新
                 update_playing_bar();
