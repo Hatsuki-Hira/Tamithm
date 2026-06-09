@@ -5,11 +5,17 @@ void update_welcome_ui(void);
 void handle_welcome_input(void);
 
 
+
+// 初始化选歌界面窗口布局
+void init_song_select_windows(void);
 void update_song_select_bar(void);
-void init_song_select_windows(void);  // 初始化选歌界面窗口布局
 void handle_song_select_input(void);
-// 储存每个窗口的对角坐标
-extern int song_select_windows_menu[2][2];
-extern int song_select_windows_charts[2][2];
-extern int song_select_windows_preview[2][2];
-extern int song_select_windows_details[2][2];
+
+
+
+// 初始化打歌界面窗口布局
+void init_playing_windows(void);
+void reset_playing_state(void);
+void update_playing_bar(void);
+void update_note(void);
+void handle_playing_input(void);

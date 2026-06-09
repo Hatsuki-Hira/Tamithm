@@ -10,6 +10,8 @@
     #define SLEEP_MS(ms) usleep((ms) * 1000)
 #endif
 
+#include <time.h>  // clock_t, clock()
+
 
 
 // 用户数据
@@ -20,7 +22,14 @@ typedef struct {
     int fps;
     char language[8];
     int note_speed;
-    int judge_line_y;
+    int lane_padding;  // 轨道左右内边距（列数）
+
+    char key1_4k;
+    char key2_4k;
+    char key3_4k;
+    char key4_4k;
+
+    int judge_line_position;
     int music_offset;
 } Config;
 extern Config user_config;
@@ -43,8 +52,9 @@ extern GameState game_state;
 
 
 // 字符缓冲区
-// 颜色值范围 0~255（256色），257 = 终端默认色
-#define COLOR_NONE 257
+// 颜色值范围 0~255（256色）
+#define COLOR_NONE 257     // 设置成终端默认颜色
+#define COLOR_INHERIT -1  // 不改变颜色，继承旧颜色
 typedef struct
 {
     char ch[5];           // UTF-8 字符（最多4字节 + null终止符）
@@ -62,8 +72,12 @@ typedef struct
 extern Screen screen;
 
 
+// -------------------------------------
+//             谱面相关全局
+// -------------------------------------
+// 播放音频
+void audio_exit(void);
 
-// 谱面相关
 #define MAX_CHARTS 128
 #define CHART_NAME_MAX 256
 
@@ -72,8 +86,12 @@ extern char chart_names[MAX_CHARTS][CHART_NAME_MAX];  // 谱面名字数组
 extern char chart_full_path[256];  // 谱面目录绝对路径
 extern int selected_chart_num;  // 选歌界面当前歌曲序号
 
+
+
+// 加载铺面
 void load_charts(void);
 
+// 谱面信息
 typedef struct
 {
     char title[128];
@@ -84,18 +102,50 @@ typedef struct
 } ChartInfo;
 extern ChartInfo chart_info;
 
+// Note 类型
 typedef enum
 {
     NOTE_TAP,
-    NOTE_HOLD;
+    NOTE_HOLD
 } NoteType;
 
+// Note 数据
 typedef struct
 {
     NoteType type;
 
     int lane;
-
     int start_time;
     int end_time;
+
+    int hit;          // 0=未打击, 1=已打击
+    int held;         // 0=未打击, 1=按住, 2=松手 (Tap忽略此项)
+    int hit_time;     // 实际按下的时间
 } Note;
+
+extern Note *chart_notes;  // 当前加载的谱面 Note 数据
+extern int chart_note_count;  // Note 数量统计
+
+extern clock_t game_start_time;  // 游戏计时（clock_t 的起始值）v
+
+// 全局判定参数（窗口，单位毫秒）
+#define JUDGE_PERFECT_WINDOW 80   // ±80ms
+#define JUDGE_GOOD_WINDOW    160  // ±160ms
+#define JUDGE_BAD_WINDOW     180  // ±180ms
+
+// 判定等级
+typedef enum {
+    JUDGE_NONE,
+    JUDGE_MISS,
+    JUDGE_BAD,
+    JUDGE_GOOD,
+    JUDGE_PERFECT
+} JudgeRank;
+
+// 统计
+extern int score_perfect;
+extern int score_good;
+extern int score_bad;
+extern int score_miss;
+extern int combo;
+extern int max_combo;

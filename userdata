@@ -1,2 +1,9 @@
-fps=60
+fps=120
 language=en_us
+note_speed_ms=550
+lane_padding=8
+key1_4k=d
+key2_4k=f
+key3_4k=j
+key4_4k=k
+judge_line_position=3

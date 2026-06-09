@@ -4,8 +4,13 @@
 
 #include "../global.h"
 #include "../data/renderer.h"
+#include "../data/osu_compatible.h"
 #include "scenes.h"
 
+
+// 前向声明
+int get_charts_info(void);
+void screen_draw_preview(int position[2][2]);
 
 
 // 窗口坐标（全局变量定义）
@@ -114,10 +119,10 @@ void update_song_select_bar(void) {
 
 
     // 画窗口边框
-    screen_draw_frame(song_select_windows_menu, " Menu ");
-    screen_draw_frame(song_select_windows_charts, " Charts ");
-    screen_draw_frame(song_select_windows_preview, " Preview ");
-    screen_draw_frame(song_select_windows_details, " Details ");
+    screen_draw_frame(song_select_windows_menu, " Menu ", 15);
+    screen_draw_frame(song_select_windows_charts, " Charts ", 15);
+    screen_draw_frame(song_select_windows_preview, " Preview ", 15);
+    screen_draw_frame(song_select_windows_details, " Details ", 15);
 
     // Menu窗口内容
     screen_draw_menu_list(song_select_windows_menu);
@@ -125,20 +130,59 @@ void update_song_select_bar(void) {
     // 选歌列表
     screen_draw_charts_list(song_select_windows_charts);
 
+    // 谱面预览
+    get_charts_info();
+    screen_draw_preview(song_select_windows_preview);
+
     render(1);
 }
 
 
 
-void get_charts_info(void) {
-    if (strncmp(line, "TitleUnicode", 13) == 0)
-        strcpy(title, line + 13);
+int get_charts_info(void) {
+    char filepath[512];
+    sprintf(filepath, "%s%s.osu", chart_full_path, chart_names[selected_chart_num]);
+    FILE *fp = fopen(filepath, "r");
+    if(fp == NULL)
+        return -1;
+
+    char line[256];
+    while (fgets(line, sizeof(line), fp)) {
+        // 去掉末尾换行符
+        size_t len = strlen(line);
+        if (len > 0 && line[len - 1] == '\n') line[len - 1] = '\0';
+
+        if (strncmp(line, "TitleUnicode:", 13) == 0)
+            strcpy(chart_info.title, line + 13);
+        else if (strncmp(line, "Creator:", 8) == 0)
+            strcpy(chart_info.creator, line + 8);
+        else if (strncmp(line, "Version:", 8) == 0)
+            strcpy(chart_info.difficulty, line + 8);
+        else if (strncmp(line, "CircleSize:", 11) == 0)
+            chart_info.keys = atoi(line + 11);
+    }
+
+    fclose(fp);
+    return 0;
 }
 
 
 
 void screen_draw_preview(int position[2][2]) {
-    
+    // 先清空预览窗口内容区域，防止文字残留
+    for (int y = position[0][0] + 1; y < position[1][0]; y++) {
+        screen_clear_line_range(y, position[0][1] + 1, position[1][1] - 1);
+    }
+
+    char line[512];
+    sprintf(line, "Title: %s", chart_info.title);
+    screen_display_text_wrapped(position[0][0] + 1, position[0][1] + 2, line, position[1][1], 15, COLOR_NONE);
+    sprintf(line, "Creator: %s", chart_info.creator);
+    screen_display_text_wrapped(position[0][0] + 2, position[0][1] + 2, line, position[1][1], 15, COLOR_NONE);
+    sprintf(line, "Difficulty: %s", chart_info.difficulty);
+    screen_display_text_wrapped(position[0][0] + 3, position[0][1] + 2, line, position[1][1], 15, COLOR_NONE);
+    sprintf(line, "Keys: %d", chart_info.keys);
+    screen_display_text_wrapped(position[0][0] + 4, position[0][1] + 2, line, position[1][1], 15, COLOR_NONE);
 }
 
 
@@ -167,6 +211,38 @@ void handle_song_select_input(void) {
             if (selected_chart_num < chart_count - 1) {
                 selected_chart_num++;
             }
+        }
+        if (key == 72 || key == 80) {
+            get_charts_info();
+            screen_draw_preview(song_select_windows_preview);
+        }
+        // 按 Enter 打歌
+        if (key == 13) {
+            screen_clear();
+            game_state = STATE_PLAYING;
+
+            // 加载谱面
+            char filepath[512];
+            sprintf(filepath, "%s%s.osu", chart_full_path, chart_names[selected_chart_num]);
+            osu_load_notes(filepath, &chart_notes, &chart_note_count);
+
+//            // -------------- 测试：输出所有 Note 到文件 --------------
+//            FILE *ftest = fopen("test/notes_output.txt", "w");
+//            if (ftest) {
+//                fprintf(ftest, "Total notes: %d\n\n", chart_note_count);
+//                for (int i = 0; i < chart_note_count; i++) {
+//                    Note *n = &chart_notes[i];
+//                    fprintf(ftest, "[%4d] lane=%d  type=%s  start=%d",
+//                            i, n->lane,
+//                            (n->type == NOTE_TAP) ? "TAP " : "HOLD",
+//                            n->start_time);
+//                    if (n->type == NOTE_HOLD)
+//                        fprintf(ftest, "  end=%d  duration=%d", n->end_time, n->end_time - n->start_time);
+//                    fprintf(ftest, "\n");
+//                }
+//                fclose(ftest);
+//            }
+//            // ------------------------------------------------------
         }
         // 按 Esc 返回主菜单
         if (key == 27) {

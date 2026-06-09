@@ -184,6 +184,52 @@ void screen_display_text(
 }
 
 
+// 设置多个字符（超出 max_x 自动换行，支持 UTF-8）
+void screen_display_text_wrapped(
+    int y,
+    int x,
+    const char *ch,
+    int max_x,
+    int fg_color,
+    int bg_color
+) {
+    int start_x = x;
+    while (*ch != '\0') {
+        // 遇到换行符就换行
+        if (*ch == '\n') {
+            y++;
+            x = start_x;
+            ch++;
+            continue;
+        }
+
+        // 计算当前 UTF-8 字符占几个字节
+        int len;
+        if      ((*ch & 0xF8) == 0xF0) len = 4;
+        else if ((*ch & 0xF0) == 0xE0) len = 3;
+        else if ((*ch & 0xE0) == 0xC0) len = 2;
+        else                           len = 1;
+
+        // 如果当前位置已到达或超过右边界，自动换行
+        if (x >= max_x) {
+            y++;
+            x = start_x;
+        }
+
+        char buf[5] = {0};
+        strncpy(buf, ch, len);
+        screen_set_cell(y, x, buf, fg_color, bg_color);
+
+        if (len >= 3) {
+            screen_set_cell(y, x + 1, "\0", fg_color, bg_color);
+            x += 2;
+        } else {
+            x++;
+        }
+        ch += len;
+    }
+}
+
 
 // 清空屏幕缓冲区（全设为透明空格）
 void screen_clear(void) {
@@ -194,44 +240,51 @@ void screen_clear(void) {
     }
 }
 
+// 清空某行的指定列范围（从 x1 到 x2，含 x2），填充透明空格
+void screen_clear_line_range(int y, int x1, int x2) {
+    for (int x = x1; x <= x2; x++) {
+        screen_set_cell(y, x, " ", 0, COLOR_NONE);
+    }
+}
+
 
 
 // 绘制窗口边框
-void screen_draw_frame(int position[2][2], const char *title) {
+void screen_draw_frame(int position[2][2], const char *title, int fg_color) {
     for(int y = position[0][0]; y <= position[1][0]; y++) {
         // 第一行
         if (y == position[0][0])
         {
             // 边角
-            screen_set_cell(y, position[0][1], "┌", 15, COLOR_NONE);
-            screen_set_cell(y, position[1][1], "┐", 15, COLOR_NONE);
+            screen_set_cell(y, position[0][1], "┌", fg_color, COLOR_NONE);
+            screen_set_cell(y, position[1][1], "┐", fg_color, COLOR_NONE);
 
             // 先画标题，再画水平棱边
             if (title != NULL && title[0] != '\0') {
-                screen_display_text(y, position[0][1] + 1, title, 15, COLOR_NONE);
+                screen_display_text(y, position[0][1] + 1, title, fg_color, COLOR_NONE);
                 int title_end = position[0][1] + 1 + strlen(title);
                 for(int x = title_end; x < position[1][1]; x++)
-                    screen_set_cell(y, x, "─", 15, COLOR_NONE);
+                    screen_set_cell(y, x, "─", fg_color, COLOR_NONE);
             } else {
                 for(int x = position[0][1] + 1; x < position[1][1]; x++)
-                    screen_set_cell(y, x, "─", 15, COLOR_NONE);
+                    screen_set_cell(y, x, "─", fg_color, COLOR_NONE);
             }
 
             // 底边水平线
             for(int x = position[0][1] + 1; x < position[1][1]; x++)
-                screen_set_cell(position[1][0], x, "─", 15, COLOR_NONE);
+                screen_set_cell(position[1][0], x, "─", fg_color, COLOR_NONE);
         } 
         // 最后一行
         else if (y == position[1][0])
         {
             // 边角
-            screen_set_cell(y, position[0][1], "└", 15, COLOR_NONE);
-            screen_set_cell(y, position[1][1], "┘", 15, COLOR_NONE);
+            screen_set_cell(y, position[0][1], "└", fg_color, COLOR_NONE);
+            screen_set_cell(y, position[1][1], "┘", fg_color, COLOR_NONE);
         } 
         // 竖直棱边
         else {
-            screen_set_cell(y, position[0][1], "│", 15, COLOR_NONE);
-            screen_set_cell(y, position[1][1], "│", 15, COLOR_NONE);
+            screen_set_cell(y, position[0][1], "│", fg_color, COLOR_NONE);
+            screen_set_cell(y, position[1][1], "│", fg_color, COLOR_NONE);
         }
     }
 }

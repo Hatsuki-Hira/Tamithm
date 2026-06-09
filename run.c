@@ -13,6 +13,17 @@
 int chart_count = 0;
 char chart_names[MAX_CHARTS][CHART_NAME_MAX];
 int selected_chart_num = 0;  // 选歌界面当前歌曲
+ChartInfo chart_info;
+Note *chart_notes = NULL;  // 加载谱面内note
+int chart_note_count = 0;  // 谱面内note数量
+clock_t game_start_time = 0;
+// 游玩统计
+int score_perfect = 0;
+int score_good = 0;
+int score_bad = 0;
+int score_miss = 0;
+int combo = 0;
+int max_combo = 0;
 
 
 
@@ -63,7 +74,14 @@ int config_init(void)
         return -1;
 
     fscanf(fp, "fps=%d\n", &user_config.fps);
-    fscanf(fp, "language=%s", &user_config.language);
+    fscanf(fp, "language=%s\n", &user_config.language);
+    fscanf(fp, "note_speed_ms=%d\n", &user_config.note_speed);
+    fscanf(fp, "lane_padding=%d\n", &user_config.lane_padding);
+    fscanf(fp, "key1_4k=%c\n", &user_config.key1_4k);
+    fscanf(fp, "key2_4k=%c\n", &user_config.key2_4k);
+    fscanf(fp, "key3_4k=%c\n", &user_config.key3_4k);
+    fscanf(fp, "key4_4k=%c\n", &user_config.key4_4k);
+    fscanf(fp, "judge_line_position=%d\n", &user_config.judge_line_position);
 
     fclose(fp);
     return 0;
@@ -76,6 +94,37 @@ char chart_full_path[256];
 void get_charts_path(char *out, int out_size) {
     char rel[64] = "charts\\";
     GetFullPathName(rel, out_size, out, NULL);
+}
+
+
+
+// 音频库
+#define MINIAUDIO_IMPLEMENTATION
+#include "data/miniaudio.h"
+
+
+ma_engine engine;
+ma_result result;
+int audio_init(void)
+{
+    result = ma_engine_init(NULL, &engine);
+    if (result != MA_SUCCESS) {
+        return -1;
+    }
+}
+
+int audio_play(void)
+{
+    char filepath[512];
+    sprintf(filepath, "%s%s.mp3", chart_full_path, chart_names[selected_chart_num]);
+    ma_engine_play_sound(&engine, filepath, NULL);
+
+    return 0;
+}
+
+void audio_exit(void)
+{
+    ma_engine_uninit(&engine);
 }
 
 
@@ -98,6 +147,7 @@ int main() {
     get_terminal_size(&user_config.width, &user_config.height);  // 获取终端尺寸
     screen_init();  // 初始化屏幕缓冲区
     init_song_select_windows();  //初始化选歌界面的布局
+    init_playing_windows();  //初始化轨道的布局
 
     // 谱面初始化
     load_charts();  // 加载谱面列表
@@ -124,6 +174,26 @@ int main() {
                 break;
 
             case STATE_PLAYING:
+                // 初始化
+                if (game_start_time == 0) {
+                    reset_playing_state();  // 重置打击索引
+                    for (int i = 0; i < chart_note_count; i++) {
+                        chart_notes[i].hit = 0;
+                        chart_notes[i].held = 0;
+                    }
+                    game_start_time = clock();  // 启动计时器
+                    score_perfect = 0;
+                    score_good = 0;
+                    score_bad = 0;
+                    score_miss = 0;
+                    combo = 0;
+                    max_combo = 0;
+                    audio_init();
+                    audio_play();  // 播放音频
+                }
+                // 游戏逻辑更新
+                update_playing_bar();
+                handle_playing_input();
                 break;
 
             case STATE_PAUSE:
