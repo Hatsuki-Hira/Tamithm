@@ -19,3 +19,7 @@
 ```
 gcc -g .\Tamithm\*.c .\Tamithm\scenes\*.c .\Tamithm\data\*.c -o .\Tamithm\run.exe
 ```
+
+## 使用项目
+- miniaudio 音频库
+  - https://github.com/mackron/miniaudio
