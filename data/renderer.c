@@ -235,7 +235,7 @@ void screen_display_text_wrapped(
 void screen_clear(void) {
     for (int y = 0; y < user_config.height; y++) {
         for (int x = 0; x < user_config.width; x++) {
-            screen_set_cell(y, x, " ", 0, 257);
+            screen_set_cell(y, x, " ", 0, COLOR_NONE);
         }
     }
 }

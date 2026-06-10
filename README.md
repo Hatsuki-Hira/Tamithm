@@ -1,2 +1,19 @@
 # Tamithm
-编译：gcc -g .\Tamithm\*.c .\Tamithm\scenes\*.c .\Tamithm\data\*.c -o .\Tamithm\run.exe
+
+这是一个由纯c编写的终端下落式音乐游戏，目前只有4K模式可以游玩
+
+## 谱面兼容性
+| 音乐游戏 | 状态 | 说明 |
+|------|------|------|
+| Osu! | ✅ | mania模式4k谱面 |
+
+## 功能实现
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| Autoplay | ❌ |  |
+| 延迟调整 | ❌ | 正在实现 |
+
+## 编译
+```
+gcc -g .\Tamithm\*.c .\Tamithm\scenes\*.c .\Tamithm\data\*.c -o .\Tamithm\run.exe
+```

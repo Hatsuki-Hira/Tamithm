@@ -41,7 +41,7 @@ void screen_display_text_wrapped(
 
 
 
-// 清空屏幕缓冲区（全设为黑底空格）
+// 清空屏幕缓冲区（全设为透明空格）
 void screen_clear(void);
 
 // 清空某行的指定列范围（从 x1 到 x2，含 x2），填充透明空格

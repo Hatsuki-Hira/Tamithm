@@ -34,11 +34,11 @@ void init_playing_windows(void) {
 // 显示 combo 大字体 "COMBO" + 数字
 static void draw_combo(void)
 {
+    if (combo == 0) return;
     int x = lane_line[1][1] + 1;
     int y = lane_line[0][0];
 
     /* ---------- 绘制 COMBO ---------- */
-
     for (int row = 0; row < 3; row++) {
         for (int col = 0; col < 20; col++) {
             screen_set_cell(y + row, x + col, combo_logo[row][col], 183, COLOR_NONE
@@ -49,8 +49,7 @@ static void draw_combo(void)
     // COMBO logo 宽20列 + 2列间距
     x += 23;
 
-    /* ---------- 拆数字 ---------- */
-
+    /* ---------- 按位数拆数字 ---------- */
     int n = combo;
     int digits[10];
     int dcount = 0;
@@ -65,7 +64,6 @@ static void draw_combo(void)
     }
 
     /* ---------- 绘制数字 ---------- */
-
     for (int d = dcount - 1; d >= 0; d--) {
         int digit = digits[d];
         for (int row = 0; row < 3; row++) {
@@ -73,7 +71,6 @@ static void draw_combo(void)
                 screen_set_cell(y + row, x + col, combo_font[digit][row][col], 15, COLOR_NONE);
             }
         }
-
         // 数字宽3列 + 1列间距
         x += 4;
     }
@@ -81,7 +78,7 @@ static void draw_combo(void)
 
 
 // 绘制画面
-void update_playing_bar(void) {
+void update_playing_ui(void) {
     // header第1行
     char line0[150];
     sprintf(line0, "%s", chart_names[selected_chart_num]);
@@ -103,11 +100,11 @@ void update_playing_bar(void) {
     // footer第1行
     char footer[256];
     if (strcmp(user_config.language, "en_us") == 0)
-        sprintf(footer, "PERFECT:%d  GOOD:%d  BAD:%d  MISS:%d  COMBO:%d   judge: a-0/b-0   (esc) Pause Menu",
-                score_perfect, score_good, score_bad, score_miss, combo);  // 白字透明底
+        sprintf(footer, "PERFECT:%d  GOOD:%d  BAD:%d  MISS:%d  MAX_COMBO:%d   judge: a-0/b-0   (esc) Pause Menu",
+                score_perfect, score_good, score_bad, score_miss, max_combo);  // 白字透明底
     else if (strcmp(user_config.language, "zh_cn") == 0)
-        sprintf(footer, "PERFECT:%d  GOOD:%d  BAD:%d  MISS:%d  COMBO:%d   判定: a-0/b-0   (esc) 暂停菜单",
-                score_perfect, score_good, score_bad, score_miss, combo);  // 白字透明底
+        sprintf(footer, "PERFECT:%d  GOOD:%d  BAD:%d  MISS:%d  MAX_COMBO:%d   判定: a-0/b-0   (esc) 暂停菜单",
+                score_perfect, score_good, score_bad, score_miss, max_combo);  // 白字透明底
     screen_display_text(user_config.height - 1, 0, footer, 15, COLOR_NONE);
 
 
@@ -134,19 +131,19 @@ static int get_game_time_ms(void) {
 
 // 将 Note 的 start_time 映射为浮点屏幕 Y 坐标
 
-//  参数:
-//    note_time    - Note 的 start_time（毫秒）
-//    judge_line_y - 判定线在屏幕上的行数（整数）
-//  返回值:
-//    浮点数 Y，分量在 [窗口顶 ~ 判定线] 之间
-//    如果 note 还没进入可见区，返回窗口顶（clamp 在 top_y）
-//    如果 note 已经过判定线，返回判定线（clamp 在 judge_y）
-//  计算:
-//    1. progress = diff / VISIBLE_TIME_MS
-//       progress 从 1.0（刚进入视野）到 0.0（到达判定线）
-//    2. Y = judge_y - progress * (judge_y - top_y)
-//       progress=1 → Y = top_y       （窗口顶部）
-//       progress=0 → Y = judge_y      （判定线上）
+/*  参数:
+        note_time    - Note 的 start_time（毫秒）
+        judge_line_y - 判定线在屏幕上的行数（整数）
+    返回值:
+        浮点数 Y，分量在 [窗口顶 ~ 判定线] 之间
+        如果 note 还没进入可见区，返回窗口顶（clamp 在 top_y）
+        如果 note 已经过判定线，返回判定线（clamp 在 judge_y）
+    计算:
+        1. progress = diff / VISIBLE_TIME_MS
+           progress 从 1.0（刚进入视野）到 0.0（到达判定线）
+        2. Y = judge_y - progress * (judge_y - top_y)
+           progress=1 → Y = top_y       （窗口顶部）
+           progress=0 → Y = judge_y      （判定线上）*/
 static float note_time_to_y(int note_time, int judge_line_y) {
     int current_ms = get_game_time_ms();
     int diff = note_time - current_ms;  // >0: note 未来, <=0: note 已过
@@ -176,11 +173,11 @@ static void draw_note_cell(int y, int x, int half, int color) {
 
 
 // ──────────────────────── Note 完整绘制 ────────────────────────
-//  参数:
-//    lane    - 轨道号 (0 ~ keys-1)
-//    y       - Note 中心位置的浮点屏幕 Y 坐标
-//    color   - 字符颜色
-//    if_judge_line_can_cover - 过了判定线不渲染 (用于 Hold)
+/*  参数:
+    lane    - 轨道号 (0 ~ keys-1)
+    y       - Note 中心位置的浮点屏幕 Y 坐标
+    color   - 字符颜色
+    if_judge_line_can_cover - 过了判定线不渲染 (用于 Hold)*/
 static void draw_note_shape(int lane, float y, int color, int if_judge_line_can_cover) {
     int keys = chart_info.keys;
     if (keys < 1) keys = 4;
@@ -188,20 +185,14 @@ static void draw_note_shape(int lane, float y, int color, int if_judge_line_can_
     int x0 = playing_windows[0][1] + 1;
     int x1 = playing_windows[1][1] - 1;
     int inner_w = x1 - x0 + 1;
-    //int lane_w = (inner_w - (keys - 1)) / keys;
-    //int draw_w = (lane_w - LANE_PADDING * 2) / 2;  // 每个半块占2列
-    //if (draw_w < 1) draw_w = 1;
-
-    //int lane_x = x0 + lane * (lane_w + 1) + LANE_PADDING;
-
 
     // ──────────────────────── Note位置判断与绘制 ────────────────────────
-    //    一个 Note 占轨道内多个半块字符（▄/▀）或白底空格。
-    //    当 y 在两行中间（frac > 0.33 或 < -0.33）时：
-    //      上行画 ▄（下半个块），下行画 ▀（上半个块）
-    //      合起来就是一个完整的白色方块跨在两行之间
-    //    当 y 接近某行中心时：
-    //      直接在该行画白底空格（整格）
+    /*    一个 Note 占轨道内多个半块字符（▄/▀）或白底空格
+          当 y 在两行中间（frac > 0.33 或 < -0.33）时：
+            上行画 ▄（下半个块），下行画 ▀（上半个块）
+            合起来就是一个完整的白色方块跨在两行之间
+          当 y 接近某行中心时：
+            直接在该行画白底空格（整格）*/
     int row = (int)(y + 0.5f);
     float frac = y - row;  // [-0.5, 0.5]
 
@@ -324,7 +315,7 @@ void update_note(void) {
         Note *n = &chart_notes[i];
 
         // Note 类型判定
-        // --------Tap--------
+        /* ---------- Tap ---------- */
         if (n->type == NOTE_TAP) {
             // 忽略已击打 Tap
             if (n->hit) continue;
@@ -341,10 +332,10 @@ void update_note(void) {
             float y = note_time_to_y(n->start_time, judge_y);
             if (y < top_bound - 1 || y > bot_bound + 1) continue;
 
-            // 画 Tap
+            // 渲染 Tap
             draw_note_shape(n->lane, y, 15, 0);
 
-        // --------Hold--------
+        /* ---------- Hold ---------- */
         } else {
             // MISS 检测：头部超过 BAD 窗口还没被按
             if (!n->hit && current_ms - n->start_time > JUDGE_BAD_WINDOW) {
@@ -391,12 +382,11 @@ void update_note(void) {
             }
 
 
-
             // 取整行号，尾部在屏幕下方（Y 更大）
             int tail_row = (int)(tail_y + 1.0f);
             int head_row = (int)(head_y - 0.25f);
 
-            // 画 Hold
+            /* ------------- 渲染 Hold ------------- */
             if (n->held != 2)  // 非miss的hold
                 draw_hold_body(n->lane, head_row, tail_row, 7);  // body（把背景设置成浅灰色，需要单独操作缓冲区Cell）
             else  // miss的hold

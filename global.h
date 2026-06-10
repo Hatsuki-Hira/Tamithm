@@ -51,6 +51,12 @@ extern GameState game_state;
 
 
 
+// 选歌界面当前歌曲、设置项索引序号
+extern int selected_setting_num;
+extern int selected_chart_num;
+
+
+
 // 字符缓冲区
 // 颜色值范围 0~255（256色）
 #define COLOR_NONE 257     // 设置成终端默认颜色
@@ -72,8 +78,12 @@ typedef struct
 extern Screen screen;
 
 
+// config 保存配置
+void config_save(void);
+
+
 // -------------------------------------
-//             谱面相关全局
+//           谱面相关全局定义
 // -------------------------------------
 // 播放音频
 void audio_exit(void);
@@ -84,12 +94,11 @@ void audio_exit(void);
 extern int chart_count;  // 谱面数量
 extern char chart_names[MAX_CHARTS][CHART_NAME_MAX];  // 谱面名字数组
 extern char chart_full_path[256];  // 谱面目录绝对路径
-extern int selected_chart_num;  // 选歌界面当前歌曲序号
 
 
 
 // 加载铺面
-void load_charts(void);
+void load_charts_osu(void);
 
 // 谱面信息
 typedef struct

@@ -9,11 +9,14 @@
 
 
 
-// 谱面列表（全局变量定义）
+// 谱面相关全局变量初始化
 int chart_count = 0;
 char chart_names[MAX_CHARTS][CHART_NAME_MAX];
-int selected_chart_num = 0;  // 选歌界面当前歌曲
-ChartInfo chart_info;
+
+int selected_chart_num = 0;  // 选歌界面当前歌曲索引序号
+int selected_setting_num = 0;  // 选歌界面当前设置项索引序号
+
+ChartInfo chart_info;  // 谱面信息
 Note *chart_notes = NULL;  // 加载谱面内note
 int chart_note_count = 0;  // 谱面内note数量
 clock_t game_start_time = 0;
@@ -28,7 +31,7 @@ int max_combo = 0;
 
 
 // 扫描 charts 目录，加载所有 .osu 文件名
-void load_charts(void) {
+void load_charts_osu(void) {
     WIN32_FIND_DATAW find_data;
     HANDLE hFind = FindFirstFileW(L"charts\\*.osu", &find_data);
 
@@ -69,7 +72,7 @@ void load_charts(void) {
 Config user_config;
 int config_init(void)
 {
-    FILE *fp = fopen("D:\\Home\\Programming\\c\\Tamithm\\userdata", "r");
+    FILE *fp = fopen("userdata", "r");
     if(fp == NULL)
         return -1;
 
@@ -77,14 +80,36 @@ int config_init(void)
     fscanf(fp, "language=%s\n", &user_config.language);
     fscanf(fp, "note_speed_ms=%d\n", &user_config.note_speed);
     fscanf(fp, "lane_padding=%d\n", &user_config.lane_padding);
+    fscanf(fp, "judge_line_position=%d\n", &user_config.judge_line_position);
     fscanf(fp, "key1_4k=%c\n", &user_config.key1_4k);
     fscanf(fp, "key2_4k=%c\n", &user_config.key2_4k);
     fscanf(fp, "key3_4k=%c\n", &user_config.key3_4k);
     fscanf(fp, "key4_4k=%c\n", &user_config.key4_4k);
-    fscanf(fp, "judge_line_position=%d\n", &user_config.judge_line_position);
 
     fclose(fp);
     return 0;
+}
+
+
+
+// 保存用户数据
+void config_save(void)
+{
+    FILE *fp = fopen("userdata", "w");
+    if(fp == NULL)
+        return;
+
+    fprintf(fp, "fps=%d\n", user_config.fps);
+    fprintf(fp, "language=%s\n", user_config.language);
+    fprintf(fp, "note_speed_ms=%d\n", user_config.note_speed);
+    fprintf(fp, "lane_padding=%d\n", user_config.lane_padding);
+    fprintf(fp, "judge_line_position=%d\n", user_config.judge_line_position);
+    fprintf(fp, "key1_4k=%c\n", user_config.key1_4k);
+    fprintf(fp, "key2_4k=%c\n", user_config.key2_4k);
+    fprintf(fp, "key3_4k=%c\n", user_config.key3_4k);
+    fprintf(fp, "key4_4k=%c\n", user_config.key4_4k);
+
+    fclose(fp);
 }
 
 
@@ -145,12 +170,13 @@ int main() {
 
     init_terminal();  // 初始化终端
     get_terminal_size(&user_config.width, &user_config.height);  // 获取终端尺寸
+
     screen_init();  // 初始化屏幕缓冲区
     init_song_select_windows();  //初始化选歌界面的布局
     init_playing_windows();  //初始化轨道的布局
 
     // 谱面初始化
-    load_charts();  // 加载谱面列表
+    load_charts_osu();  // 加载谱面列表
     get_charts_path(chart_full_path, sizeof(chart_full_path));
     // -----------------------------------
 
@@ -160,6 +186,10 @@ int main() {
 
     // 主程序入口
     while(game_state != STATE_EXIT) {
+        get_terminal_size(&user_config.width, &user_config.height);
+        screen_init();  // 初始化屏幕缓冲区
+        init_song_select_windows();  //初始化选歌界面的布局
+        init_playing_windows();  //初始化轨道的布局
         // 页面切换状态机
         switch(game_state)
         {
@@ -169,7 +199,7 @@ int main() {
                 break;
 
             case STATE_SONG_SELECT:
-                update_song_select_bar();
+                update_song_select_ui();
                 handle_song_select_input();
                 break;
 
@@ -194,7 +224,7 @@ int main() {
                     max_combo = 0;
                 }
                 // 游戏逻辑更新
-                update_playing_bar();
+                update_playing_ui();
                 handle_playing_input();
                 break;
 
