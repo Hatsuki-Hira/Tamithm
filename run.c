@@ -190,6 +190,11 @@ int main() {
         screen_init();  // 初始化屏幕缓冲区
         init_song_select_windows();  //初始化选歌界面的布局
         init_playing_windows();  //初始化轨道的布局
+
+        // 第一次加载铺面，显示简要信息
+        load_chart();
+
+
         // 页面切换状态机
         switch(game_state)
         {

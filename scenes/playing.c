@@ -31,7 +31,7 @@ void init_playing_windows(void) {
     lane_line[1][1] = lane_line[0][1] + (user_config.lane_padding + 1) * 4;  // 轨道右侧
 }
 
-// 显示 combo 大字体 "COMBO" + 数字
+// 显示 COMBO + 数字
 static void draw_combo(void)
 {
     if (combo == 0) return;
@@ -358,7 +358,8 @@ void update_note(void) {
             int key_down = (GetAsyncKeyState(vk) & 0x8000);
 
             // 按住的 Hold 尾部过了 BAD 区间，自动结算
-            if (n->hit && (n->held == 1) && (current_ms - n->end_time > JUDGE_BAD_WINDOW)) {
+            int release_diff = current_ms - n->end_time;  // 松手时差
+            if (n->hit && (n->held == 1) && (release_diff > JUDGE_BAD_WINDOW)) {
                 n->held = 2;
                 score_perfect++;
                 combo++;
@@ -368,9 +369,9 @@ void update_note(void) {
             else if (n->hit && (n->held == 1) && !key_down) {
                 n->held = 2;
 
-                int release_diff = n->end_time - current_ms;
+                int release_diff = n->end_time - current_ms;  // 松手时差
                 // 松手miss了
-                if (release_diff >= JUDGE_BAD) {
+                if (release_diff >= JUDGE_BAD_WINDOW) {
                     score_miss++;
                     combo = 0;
                 // 松手在判定区间内

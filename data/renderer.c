@@ -44,7 +44,7 @@ void get_terminal_size(int *width, int *height)
 
     *width =
         csbi.srWindow.Right -
-        csbi.srWindow.Left + 1;
+        csbi.srWindow.Left;
 
     *height =
         csbi.srWindow.Bottom -
@@ -70,12 +70,6 @@ void get_terminal_size(int *width, int *height)
 
 // 初始化屏幕缓冲区
 void screen_init() {
-// buffer单独存字符串时用的，已废弃
-//    screen.buffer = (char **)malloc(user_config.height * sizeof(char *));
-//    for (int i = 0; i < user_config.height; i++)
-//    {
-//        screen.buffer[i] = (char *)malloc(user_config.width * sizeof(char));
-//    }
     screen.buffer =
         malloc(user_config.height * sizeof(Cell*));
 

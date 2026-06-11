@@ -5,6 +5,7 @@
 #include "../global.h"
 #include "../data/renderer.h"
 #include "../data/osu_compatible.h"
+#include "../data/rating_caculate.h"
 #include "scenes.h"
 
 
@@ -33,13 +34,26 @@ int get_charts_info(void) {
         else if (strncmp(line, "Creator:", 8) == 0)
             strcpy(chart_info.creator, line + 8);
         else if (strncmp(line, "Version:", 8) == 0)
-            strcpy(chart_info.difficulty, line + 8);
+            strcpy(chart_info.difficulty_name, line + 8);
         else if (strncmp(line, "CircleSize:", 11) == 0)
             chart_info.keys = atoi(line + 11);
     }
 
     fclose(fp);
     return 0;
+}
+
+
+
+// 加载谱面所有内容(info note star_rating)
+void load_chart(void) {
+    get_charts_info();
+    // 加载谱面
+    char filepath[512];
+    sprintf(filepath, "%s%s.osu", chart_full_path, chart_names[selected_chart_num]);
+    osu_load_notes(filepath, &chart_notes, &chart_note_count);
+    // 计算star_rating
+    chart_info.star_rating = mania_calculate_rating(chart_notes, chart_note_count, chart_info.keys);
 }
 
 
@@ -175,10 +189,12 @@ void screen_draw_preview(int position[2][2]) {
     screen_display_text_wrapped(position[0][0] + 1, position[0][1] + 2, line, position[1][1], 15, COLOR_NONE);
     sprintf(line, "Creator: %s", chart_info.creator);
     screen_display_text_wrapped(position[0][0] + 2, position[0][1] + 2, line, position[1][1], 15, COLOR_NONE);
-    sprintf(line, "Difficulty: %s", chart_info.difficulty);
+    sprintf(line, "Difficulty Name: %s", chart_info.difficulty_name);
     screen_display_text_wrapped(position[0][0] + 3, position[0][1] + 2, line, position[1][1], 15, COLOR_NONE);
-    sprintf(line, "Keys: %d", chart_info.keys);
+    sprintf(line, "Difficulty: %.2f⭐", chart_info.star_rating);
     screen_display_text_wrapped(position[0][0] + 4, position[0][1] + 2, line, position[1][1], 15, COLOR_NONE);
+    sprintf(line, "Keys: %d", chart_info.keys);
+    screen_display_text_wrapped(position[0][0] + 5, position[0][1] + 2, line, position[1][1], 15, COLOR_NONE);
 }
 
 
@@ -398,16 +414,13 @@ void handle_song_select_input(void) {
             }
         }
         if (menu_radio_button == Charts && key == 72 || key == 80) {
-            get_charts_info();
+            // 刷新，显示简要信息
+            load_chart();
         }
         // 按 Enter 打歌
         if (menu_radio_button == Charts && key == 13) {
             game_state = STATE_PLAYING;
 
-            // 加载谱面
-            char filepath[512];
-            sprintf(filepath, "%s%s.osu", chart_full_path, chart_names[selected_chart_num]);
-            osu_load_notes(filepath, &chart_notes, &chart_note_count);
             /* -------------- 测试：输出所有 Note 到文件 --------------
             FILE *ftest = fopen("test/notes_output.txt", "w");
             if (ftest) {

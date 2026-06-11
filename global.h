@@ -99,15 +99,17 @@ extern char chart_full_path[256];  // 谱面目录绝对路径
 
 // 加载铺面
 void load_charts_osu(void);
+// 加载谱面所有内容(info note star_rating)
+void load_chart(void);
 
 // 谱面信息
 typedef struct
 {
     char title[128];
     char creator[64];
-    char difficulty[64];
-
+    char difficulty_name[64];
     int keys;
+    double star_rating;
 } ChartInfo;
 extern ChartInfo chart_info;
 
