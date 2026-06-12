@@ -30,13 +30,19 @@ int get_charts_info(void) {
         if (len > 0 && line[len - 1] == '\n') line[len - 1] = '\0';
 
         if (strncmp(line, "TitleUnicode:", 13) == 0)
-            strcpy(chart_info.title, line + 13);
+            strcpy(chart_info.title_unicode, line + 13);
+        else if (strncmp(line, "ArtistUnicode:", 14) == 0)
+            strcpy(chart_info.artist_unicode, line + 14);
         else if (strncmp(line, "Creator:", 8) == 0)
             strcpy(chart_info.creator, line + 8);
         else if (strncmp(line, "Version:", 8) == 0)
             strcpy(chart_info.difficulty_name, line + 8);
         else if (strncmp(line, "CircleSize:", 11) == 0)
             chart_info.keys = atoi(line + 11);
+        else if (strncmp(line, "AudioFilename:", 14) == 0)
+            strcpy(chart_info.audio_filename, line + 14);
+        else if (strncmp(line, "Source:", 7) == 0)
+            strcpy(chart_info.source, line + 7);
     }
 
     fclose(fp);
@@ -185,16 +191,20 @@ void screen_draw_preview(int position[2][2]) {
     }
 
     char line[256];
-    sprintf(line, "Title: %s", chart_info.title);
+    sprintf(line, "Title: %s", chart_info.title_unicode);
     screen_display_text_wrapped(position[0][0] + 1, position[0][1] + 2, line, position[1][1], 15, COLOR_NONE);
-    sprintf(line, "Creator: %s", chart_info.creator);
+    sprintf(line, "Artist: %s", chart_info.artist_unicode);
     screen_display_text_wrapped(position[0][0] + 2, position[0][1] + 2, line, position[1][1], 15, COLOR_NONE);
-    sprintf(line, "Difficulty Name: %s", chart_info.difficulty_name);
-    screen_display_text_wrapped(position[0][0] + 3, position[0][1] + 2, line, position[1][1], 15, COLOR_NONE);
     sprintf(line, "Difficulty: %.2f⭐", chart_info.star_rating);
+    screen_display_text_wrapped(position[0][0] + 3, position[0][1] + 2, line, position[1][1], 15, COLOR_NONE);
+    sprintf(line, "Chart Creator: %s", chart_info.creator);
     screen_display_text_wrapped(position[0][0] + 4, position[0][1] + 2, line, position[1][1], 15, COLOR_NONE);
-    sprintf(line, "Keys: %d", chart_info.keys);
+    sprintf(line, "Level Name: %s", chart_info.difficulty_name);
     screen_display_text_wrapped(position[0][0] + 5, position[0][1] + 2, line, position[1][1], 15, COLOR_NONE);
+    sprintf(line, "Keys: %d", chart_info.keys);
+    screen_display_text_wrapped(position[0][0] + 6, position[0][1] + 2, line, position[1][1], 15, COLOR_NONE);
+    sprintf(line, "Source: %s", chart_info.source);
+    screen_display_text_wrapped(position[0][0] + 7, position[0][1] + 2, line, position[1][1], 15, COLOR_NONE);
 }
 
 
@@ -214,17 +224,18 @@ static const int setting_line_map[] = {
     4,   // 2: Note Speed
     5,   // 3: Note Width (lane_padding)
     6,   // 4: Judge Line Position
-    10,  // 5: key1
-    11,  // 6: key2
-    12,  // 7: key3
-    13,  // 8: key4
+    10,  // 5： music_offset
+    14,  // 6: key1
+    15,  // 7: key2
+    16,  // 8: key3
+    17,  // 9: key4
 };
 // 选项总个数
 int SETTING_TOTAL_COUNT = 9;
 
 // 绘制设置界面language=en_us
 void screen_draw_settings(int position[2][2]) {
-    char line[14][256] = {" "};
+    char line[18][256] = {" "};
     int middle_x;  // 居中后左上角x坐标
     if (strcmp(user_config.language, "en_us") == 0) {
         sprintf(line[0],  "---------------[general]---------------");
@@ -233,12 +244,14 @@ void screen_draw_settings(int position[2][2]) {
         sprintf(line[4],  "         Note Speed   %dms", user_config.note_speed);
         sprintf(line[5],  "         Note Width   %d", user_config.lane_padding);
         sprintf(line[6],  "Judge Line Position   %d", user_config.judge_line_position);
-        sprintf(line[8],  "---------------[4k Mode]---------------");
-        sprintf(line[9],  "            <Enter to edit>");
-        sprintf(line[10], "               key1   %s", (key_capture_mode && selected_setting_num == 5) ? "<Press any key to bind...>" : (char[]){user_config.key1_4k, '\0'});
-        sprintf(line[11], "               key2   %s", (key_capture_mode && selected_setting_num == 6) ? "<Press any key to bind...>" : (char[]){user_config.key2_4k, '\0'});
-        sprintf(line[12], "               key3   %s", (key_capture_mode && selected_setting_num == 7) ? "<Press any key to bind...>" : (char[]){user_config.key3_4k, '\0'});
-        sprintf(line[13], "               key4   %s", (key_capture_mode && selected_setting_num == 8) ? "<Press any key to bind...>" : (char[]){user_config.key4_4k, '\0'});
+        sprintf(line[8],  "-------------[judge&music]-------------");
+        sprintf(line[10], "       music_offset   %dms", user_config.music_offset);
+        sprintf(line[12], "---------------[4k Mode]---------------");
+        sprintf(line[13], "            <Enter to edit>");
+        sprintf(line[14], "               key1   %s", (key_capture_mode && selected_setting_num == 5) ? "<Press any key to bind...>" : (char[]){user_config.key1_4k, '\0'});
+        sprintf(line[15], "               key2   %s", (key_capture_mode && selected_setting_num == 6) ? "<Press any key to bind...>" : (char[]){user_config.key2_4k, '\0'});
+        sprintf(line[16], "               key3   %s", (key_capture_mode && selected_setting_num == 7) ? "<Press any key to bind...>" : (char[]){user_config.key3_4k, '\0'});
+        sprintf(line[17], "               key4   %s", (key_capture_mode && selected_setting_num == 8) ? "<Press any key to bind...>" : (char[]){user_config.key4_4k, '\0'});
         middle_x = (position[1][1] + position[0][1]) / 2 - 20;
     } else
     if (strcmp(user_config.language, "zh_cn") == 0) {
@@ -248,16 +261,18 @@ void screen_draw_settings(int position[2][2]) {
         sprintf(line[4],  "      流速   %dms", user_config.note_speed);
         sprintf(line[5],  "  音符宽度   %d", user_config.lane_padding);
         sprintf(line[6],  "判定线高度   %d", user_config.judge_line_position);
-        sprintf(line[8],  "-------[4k模式]-------");
-        sprintf(line[9],  "     <Enter以编辑>");
-        sprintf(line[10], "      key1   %s", (key_capture_mode && selected_setting_num == 5) ? "<按下按键绑定...>" : (char[]){user_config.key1_4k, '\0'});
-        sprintf(line[11], "      key2   %s", (key_capture_mode && selected_setting_num == 6) ? "<按下按键绑定...>" : (char[]){user_config.key2_4k, '\0'});
-        sprintf(line[12], "      key3   %s", (key_capture_mode && selected_setting_num == 7) ? "<按下按键绑定...>" : (char[]){user_config.key3_4k, '\0'});
-        sprintf(line[13], "      key4   %s", (key_capture_mode && selected_setting_num == 8) ? "<按下按键绑定...>" : (char[]){user_config.key4_4k, '\0'});
+        sprintf(line[8],  "------[判定&音乐]------");
+        sprintf(line[10], "  音频延迟   %dms", user_config.music_offset);
+        sprintf(line[12], "-------[4k模式]-------");
+        sprintf(line[13], "    <Enter以编辑>");
+        sprintf(line[14], "      key1   %s", (key_capture_mode && selected_setting_num == 5) ? "<按下按键绑定...>" : (char[]){user_config.key1_4k, '\0'});
+        sprintf(line[15], "      key2   %s", (key_capture_mode && selected_setting_num == 6) ? "<按下按键绑定...>" : (char[]){user_config.key2_4k, '\0'});
+        sprintf(line[16], "      key3   %s", (key_capture_mode && selected_setting_num == 7) ? "<按下按键绑定...>" : (char[]){user_config.key3_4k, '\0'});
+        sprintf(line[17], "      key4   %s", (key_capture_mode && selected_setting_num == 8) ? "<按下按键绑定...>" : (char[]){user_config.key4_4k, '\0'});
         middle_x = (position[1][1] + position[0][1]) / 2 - 11;
     }
 
-    for (int i = 0; i < 14; i++) {
+    for (int i = 0; i < 18; i++) {
         // 高亮当前选中的设置项
         int color = 15;  // 白色
         if (i == setting_line_map[selected_setting_num]) {
@@ -333,16 +348,21 @@ static void change_setting_value(int direction) {
             if (user_config.judge_line_position < 0) user_config.judge_line_position = 0;
             if (user_config.judge_line_position > 100) user_config.judge_line_position = 100;
             break;
+        case 5: // Music Offset
+            user_config.music_offset += direction;
+            if (user_config.music_offset < -100) user_config.music_offset = -100;
+            if (user_config.music_offset > 100) user_config.music_offset = 100;
+            break;
     }
 }
 
 // 变更当前设置项的键位
 static void change_setting_key(void) {
     switch (selected_setting_num) {
-        case 5: // key1
-        case 6: // key2
-        case 7: // key3
-        case 8: // key4
+        case 6: // key1
+        case 7: // key2
+        case 8: // key3
+        case 9: // key4
             key_capture_mode = 1;
             break;
     }
@@ -379,7 +399,7 @@ void handle_song_select_input(void) {
             else menu_radio_button = Charts;
         }
         if (key == 'r') {
-            load_charts_osu();
+            scan_charts_list();
         }
         // 更改设置内容
         if (menu_radio_button == Settings && key == 72) {  // 上

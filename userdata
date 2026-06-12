@@ -1,8 +1,9 @@
-fps=120
+fps=160
 language=en_us
-note_speed_ms=550
+note_speed_ms=520
 lane_padding=8
 judge_line_position=3
+music_offset=0
 key1_4k=d
 key2_4k=f
 key3_4k=j

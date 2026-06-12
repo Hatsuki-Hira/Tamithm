@@ -23,6 +23,7 @@ typedef struct {
     char language[8];
     int note_speed;
     int lane_padding;  // 轨道左右内边距（列数）
+    int music_offset;
 
     char key1_4k;
     char key2_4k;
@@ -30,7 +31,6 @@ typedef struct {
     char key4_4k;
 
     int judge_line_position;
-    int music_offset;
 } Config;
 extern Config user_config;
 
@@ -98,18 +98,21 @@ extern char chart_full_path[256];  // 谱面目录绝对路径
 
 
 // 加载铺面
-void load_charts_osu(void);
+void scan_charts_list(void);
 // 加载谱面所有内容(info note star_rating)
 void load_chart(void);
 
 // 谱面信息
 typedef struct
 {
-    char title[128];
+    char title_unicode[128];
+    char artist_unicode[128];
     char creator[64];
     char difficulty_name[64];
     int keys;
     double star_rating;
+    char audio_filename[128];
+    char source[128];
 } ChartInfo;
 extern ChartInfo chart_info;
 

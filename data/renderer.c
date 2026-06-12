@@ -339,7 +339,7 @@ void render(int frame_waiting) {
 
                 // 前景色转义
                 if (current_fg == COLOR_NONE)
-                    ptr += sprintf(ptr, "\033[39m");  // 恢复默认前景
+                    ptr += sprintf(ptr, "\033[39m");  // 恢复默认前景0
                 else
                     ptr += sprintf(ptr, "\033[38;5;%dm", current_fg);
 

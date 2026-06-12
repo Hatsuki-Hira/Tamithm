@@ -31,7 +31,7 @@ int max_combo = 0;
 
 
 // 扫描 charts 目录，加载所有 .osu 文件名
-void load_charts_osu(void) {
+void scan_charts_list(void) {
     WIN32_FIND_DATAW find_data;
     HANDLE hFind = FindFirstFileW(L"charts\\*.osu", &find_data);
 
@@ -81,6 +81,7 @@ int config_init(void)
     fscanf(fp, "note_speed_ms=%d\n", &user_config.note_speed);
     fscanf(fp, "lane_padding=%d\n", &user_config.lane_padding);
     fscanf(fp, "judge_line_position=%d\n", &user_config.judge_line_position);
+    fscanf(fp, "music_offset=%d\n", &user_config.music_offset);
     fscanf(fp, "key1_4k=%c\n", &user_config.key1_4k);
     fscanf(fp, "key2_4k=%c\n", &user_config.key2_4k);
     fscanf(fp, "key3_4k=%c\n", &user_config.key3_4k);
@@ -104,6 +105,7 @@ void config_save(void)
     fprintf(fp, "note_speed_ms=%d\n", user_config.note_speed);
     fprintf(fp, "lane_padding=%d\n", user_config.lane_padding);
     fprintf(fp, "judge_line_position=%d\n", user_config.judge_line_position);
+    fprintf(fp, "music_offset=%d\n", user_config.music_offset);
     fprintf(fp, "key1_4k=%c\n", user_config.key1_4k);
     fprintf(fp, "key2_4k=%c\n", user_config.key2_4k);
     fprintf(fp, "key3_4k=%c\n", user_config.key3_4k);
@@ -124,11 +126,13 @@ void get_charts_path(char *out, int out_size) {
 
 
 // 音频库
+#include "data/stb_vorbis.inc"  // stb_vorbis 类型声明 + 实现（仅此 TU 编译一次）
 #define MINIAUDIO_IMPLEMENTATION
 #include "data/miniaudio.h"
 
 
 ma_engine engine;
+ma_sound game_sound;
 ma_result result;
 int audio_init(void)
 {
@@ -141,14 +145,38 @@ int audio_init(void)
 int audio_play(void)
 {
     char filepath[512];
-    sprintf(filepath, "%s%s.mp3", chart_full_path, chart_names[selected_chart_num]);
-    ma_engine_play_sound(&engine, filepath, NULL);
 
-    return 0;
+    // 尝试 .mp3
+    sprintf(filepath, "%s%s.mp3", chart_full_path, chart_names[selected_chart_num]);
+    result = ma_sound_init_from_file(&engine, filepath, 0, NULL, NULL, &game_sound);
+    if (result == MA_SUCCESS) {
+        // 如果 music_offset > 0，则延迟指定毫秒后开始播放
+        if (user_config.music_offset > 0) {
+            ma_uint64 now = ma_engine_get_time_in_milliseconds(&engine);
+            ma_sound_set_start_time_in_milliseconds(&game_sound, now + user_config.music_offset);
+        }
+        ma_sound_start(&game_sound);
+        return 0;
+    }
+
+    // 尝试 .ogg
+    sprintf(filepath, "%s%s.ogg", chart_full_path, chart_names[selected_chart_num]);
+    result = ma_sound_init_from_file(&engine, filepath, 0, NULL, NULL, &game_sound);
+    if (result == MA_SUCCESS) {
+        if (user_config.music_offset > 0) {
+            ma_uint64 now = ma_engine_get_time_in_milliseconds(&engine);
+            ma_sound_set_start_time_in_milliseconds(&game_sound, now + user_config.music_offset);
+        }
+        ma_sound_start(&game_sound);
+        return 0;
+    }
+
+    return -1;
 }
 
 void audio_exit(void)
 {
+    ma_sound_uninit(&game_sound);
     ma_engine_uninit(&engine);
 }
 
@@ -176,9 +204,11 @@ int main() {
     init_playing_windows();  //初始化轨道的布局
 
     // 谱面初始化
-    load_charts_osu();  // 加载谱面列表
+    scan_charts_list();  // 加载谱面列表
     get_charts_path(chart_full_path, sizeof(chart_full_path));
-    // -----------------------------------
+
+    // 第一次加载铺面，显示简要信息
+    load_chart();
 
     // 展示欢迎界面
     game_state = STATE_WELCOME;
@@ -190,10 +220,6 @@ int main() {
         screen_init();  // 初始化屏幕缓冲区
         init_song_select_windows();  //初始化选歌界面的布局
         init_playing_windows();  //初始化轨道的布局
-
-        // 第一次加载铺面，显示简要信息
-        load_chart();
-
 
         // 页面切换状态机
         switch(game_state)
