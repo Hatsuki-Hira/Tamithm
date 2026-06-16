@@ -19,3 +19,9 @@ void reset_playing_state(void);
 void update_playing_ui(void);
 void update_note(void);
 void handle_playing_input(void);
+
+
+// 结算界面
+void score_caculate(void);
+void update_result_ui(void);
+void handle_result_input(void);

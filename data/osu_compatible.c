@@ -7,6 +7,8 @@
 
 
 
+
+
 // 将 x 坐标映射到轨道号
 // osu!mania 标准：4K 时 x = 64/192/320/448 → 0/1/2/3
 // 更通用的算法：将 x 范围 [64, 448] 等分成 keys 份
@@ -45,6 +47,7 @@ static int parse_hold_endtime(const char *extra) {
 
 
 
+int all_note_count = 0;  // 初始化包括尾判的物量
 #define INITIAL_NOTE_CAPACITY 1024
 #define NOTE_GROW_FACTOR 2
 
@@ -58,7 +61,8 @@ int osu_load_notes(
         return -1;
 
     int capacity = INITIAL_NOTE_CAPACITY;
-    int count = 0;
+    int count = 0;  // 纯头部物量
+    int temp_all_note_count = 0;  // 包括尾判的物量
     Note *notes = malloc(capacity * sizeof(Note));
     if (notes == NULL) {
         fclose(fp);
@@ -132,8 +136,11 @@ int osu_load_notes(
             note->type = NOTE_HOLD;
             int end_time = (parsed >= 6) ? parse_hold_endtime(extra) : -1;
             if (end_time < time)
-                end_time = time + 500;  // 保底长度
+                end_time = time + 500;  // 保底长度(似乎可以去掉了，短Hold没问题)
             note->end_time = end_time;
+
+            // 尾判算一个物量，补偿一个
+            temp_all_note_count++;
         } else {
             // Tap Note（type=1 或其他）
             note->type = NOTE_TAP;
@@ -147,5 +154,6 @@ int osu_load_notes(
 
     *out_notes = notes;
     *out_count = count;
+    all_note_count = count + temp_all_note_count;  // 包括尾判的物量
     return 0;
 }

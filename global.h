@@ -23,6 +23,8 @@ typedef struct {
     char language[8];
     int note_speed;
     int lane_padding;  // 轨道左右内边距（列数）
+    int judge_line_position;
+
     int music_offset;
 
     char key1_4k;
@@ -30,7 +32,7 @@ typedef struct {
     char key3_4k;
     char key4_4k;
 
-    int judge_line_position;
+    int show_fps;
 } Config;
 extern Config user_config;
 
@@ -81,6 +83,10 @@ extern Screen screen;
 // config 保存配置
 void config_save(void);
 
+extern int fps;
+extern float input_delay;
+void fps_update(void);
+void fps_display(void);
 
 // -------------------------------------
 //           谱面相关全局定义
@@ -140,13 +146,17 @@ typedef struct
 extern Note *chart_notes;  // 当前加载的谱面 Note 数据
 extern int chart_note_count;  // Note 数量统计
 
-extern clock_t game_start_time;  // 游戏计时（clock_t 的起始值）v
+extern clock_t game_start_time;  // 游戏计时（clock_t 的起始值）
 
 // 全局判定参数（窗口，单位毫秒）
 #define JUDGE_PERFECT_WINDOW 80   // ±80ms
 #define JUDGE_GOOD_WINDOW    160  // ±160ms
 #define JUDGE_BAD_WINDOW     180  // ±180ms
 
+// 价值权重
+#define JUDGE_PERFECT_HEAVY 1.0f
+#define JUDGE_GOOD_HEAVY    0.5f
+#define JUDGE_BAD_HEAVY     0.2f
 // 判定等级
 typedef enum {
     JUDGE_NONE,
@@ -157,9 +167,18 @@ typedef enum {
 } JudgeRank;
 
 // 统计
+extern int all_note_count;  // 区别于chart_note_count，这里包括了长条尾判的数量;
 extern int score_perfect;
 extern int score_good;
+extern int score_good_fast;
+extern int score_good_late;
 extern int score_bad;
+extern int score_bad_fast;
+extern int score_bad_late;
 extern int score_miss;
 extern int combo;
 extern int max_combo;
+
+// 成绩
+extern float acc;
+extern int score;

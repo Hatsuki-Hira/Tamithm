@@ -23,7 +23,11 @@ clock_t game_start_time = 0;
 // 游玩统计
 int score_perfect = 0;
 int score_good = 0;
+int score_good_fast = 0;
+int score_good_late = 0;
 int score_bad = 0;
+int score_bad_fast = 0;
+int score_bad_late = 0;
 int score_miss = 0;
 int combo = 0;
 int max_combo = 0;
@@ -81,11 +85,15 @@ int config_init(void)
     fscanf(fp, "note_speed_ms=%d\n", &user_config.note_speed);
     fscanf(fp, "lane_padding=%d\n", &user_config.lane_padding);
     fscanf(fp, "judge_line_position=%d\n", &user_config.judge_line_position);
+
     fscanf(fp, "music_offset=%d\n", &user_config.music_offset);
+    
     fscanf(fp, "key1_4k=%c\n", &user_config.key1_4k);
     fscanf(fp, "key2_4k=%c\n", &user_config.key2_4k);
     fscanf(fp, "key3_4k=%c\n", &user_config.key3_4k);
     fscanf(fp, "key4_4k=%c\n", &user_config.key4_4k);
+    
+    fscanf(fp, "show_fps=%d\n", &user_config.show_fps);
 
     fclose(fp);
     return 0;
@@ -105,11 +113,15 @@ void config_save(void)
     fprintf(fp, "note_speed_ms=%d\n", user_config.note_speed);
     fprintf(fp, "lane_padding=%d\n", user_config.lane_padding);
     fprintf(fp, "judge_line_position=%d\n", user_config.judge_line_position);
+
     fprintf(fp, "music_offset=%d\n", user_config.music_offset);
+
     fprintf(fp, "key1_4k=%c\n", user_config.key1_4k);
     fprintf(fp, "key2_4k=%c\n", user_config.key2_4k);
     fprintf(fp, "key3_4k=%c\n", user_config.key3_4k);
     fprintf(fp, "key4_4k=%c\n", user_config.key4_4k);
+    
+    fprintf(fp, "show_fps=%d\n", user_config.show_fps);
 
     fclose(fp);
 }
@@ -182,6 +194,44 @@ void audio_exit(void)
 
 
 
+// fps计数器变量（使用高精度计时器）
+static LARGE_INTEGER fps_qpc_freq = {0};
+static LARGE_INTEGER fps_start_time = {0};
+int fps_frames = 0;
+int fps = 0;
+float input_delay = 0;
+
+// fps计数器初始化
+void fps_caculate_init(void) {
+    QueryPerformanceFrequency(&fps_qpc_freq);
+    QueryPerformanceCounter(&fps_start_time);
+}
+
+// fps更新（只测量，不渲染，由主循环每帧调用）
+void fps_update(void) {
+    LARGE_INTEGER now;
+    QueryPerformanceCounter(&now);
+    long long elapsed_us = (now.QuadPart - fps_start_time.QuadPart) * 1000000LL / fps_qpc_freq.QuadPart;
+
+    fps_frames++;
+    if (elapsed_us > 300000) {  // 每 300ms 更新一次
+        float frame_time = (float)elapsed_us / 1000.0f / fps_frames;  // ms per frame
+        fps = (int)(1000.0f / frame_time);
+        input_delay = frame_time;
+        fps_frames = 0;
+        fps_start_time = now;
+    }
+}
+
+// fps显示（只写入缓冲区，不调用render）
+void fps_display(void) {
+    char line[2][10] = {" "};
+    sprintf(line[0],  "%3dfps", fps);
+    sprintf(line[1],  "%4.1fms", input_delay);
+    screen_display_text(user_config.height - 2, user_config.width - 6, line[0], 0, 112);
+    screen_display_text(user_config.height - 1, user_config.width - 6, line[1], 0, 112);
+}
+
 
 // 主进程
 Screen screen;
@@ -201,7 +251,9 @@ int main() {
 
     screen_init();  // 初始化屏幕缓冲区
     init_song_select_windows();  //初始化选歌界面的布局
-    init_playing_windows();  //初始化轨道的布局
+    init_playing_windows();  //初始化游玩界面的布局
+
+    fps_caculate_init();
 
     // 谱面初始化
     scan_charts_list();  // 加载谱面列表
@@ -249,7 +301,11 @@ int main() {
                     game_start_time = clock();  // 启动计时器
                     score_perfect = 0;
                     score_good = 0;
+                    score_good_fast = 0;
+                    score_good_late = 0;
                     score_bad = 0;
+                    score_bad_fast = 0;
+                    score_bad_late = 0;
                     score_miss = 0;
                     combo = 0;
                     max_combo = 0;
@@ -263,9 +319,15 @@ int main() {
                 break;
 
             case STATE_RESULT:
+                update_result_ui();
+                handle_result_input();
                 break;
         }
 
+        // fps更新与显示
+        if (user_config.show_fps) {
+            fps_update();
+        }
     }
 
     screen_free();  // 释放屏幕缓冲区

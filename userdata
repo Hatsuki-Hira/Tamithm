@@ -1,5 +1,5 @@
-fps=160
-language=en_us
+fps=170
+language=zh_cn
 note_speed_ms=520
 lane_padding=8
 judge_line_position=3
@@ -8,3 +8,4 @@ key1_4k=d
 key2_4k=f
 key3_4k=j
 key4_4k=k
+show_fps=1

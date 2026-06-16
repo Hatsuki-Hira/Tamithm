@@ -11,10 +11,11 @@
 
 
 
+
 // 窗口坐标（全局变量定义）
 int playing_windows[2][2];
 int lane_line[2][2];
-
+int fast_late_position[2];
 
 // 初始化窗口坐标
 // 每个窗口用 [左上x, 左上y, 右下x, 右下y] 表示
@@ -29,6 +30,10 @@ void init_playing_windows(void) {
     lane_line[0][1] = lane_line_middle - (int)((user_config.lane_padding + 2) * 2);  // 轨道左侧
     lane_line[1][0] = user_config.height - 3;
     lane_line[1][1] = lane_line[0][1] + (user_config.lane_padding + 1) * 4;  // 轨道右侧
+
+    // 快慢指示器位置
+    fast_late_position[0] = lane_line[0][0] + 0.6 *(lane_line[1][0] - lane_line[0][0]);  // y
+    fast_late_position[1] = lane_line_middle - 4;  // x
 }
 
 // 显示 COMBO + 数字
@@ -36,7 +41,7 @@ static void draw_combo(void)
 {
     if (combo == 0) return;
     int x = lane_line[1][1] + 1;
-    int y = lane_line[0][0];
+    int y = lane_line[0][0] + 4;
 
     /* ---------- 绘制 COMBO ---------- */
     for (int row = 0; row < 3; row++) {
@@ -77,48 +82,67 @@ static void draw_combo(void)
 }
 
 
-// 绘制画面
-void update_playing_ui(void) {
-    // header第1行
-    char line0[150];
-    sprintf(line0, "%s", chart_names[selected_chart_num]);
-    screen_display_text(0, 0, line0, 219, COLOR_NONE);  // 粉字透明底
-
-    // header第2行
-    if (strcmp(user_config.language, "en_us") == 0)
-        sprintf(line0, "audio=%s%s.mp3", chart_full_path, chart_names[selected_chart_num]);
-    else if (strcmp(user_config.language, "zh_cn") == 0)
-        sprintf(line0, "音频=%s%s.mp3", chart_full_path, chart_names[selected_chart_num]);
-    screen_display_text(1, 0, line0, 15, COLOR_NONE);  // 白字透明底
-
-    // header&footer直线
-    for(int i = 0; i < user_config.width; i++) {
-        screen_set_cell(2, i, "─", 15, COLOR_NONE);  // 白字透明底
-        screen_set_cell(user_config.height - 2, i, "─", 15, COLOR_NONE);  // 白字透明底
-    }
-
-    // footer第1行
-    char footer[256];
-    if (strcmp(user_config.language, "en_us") == 0)
-        sprintf(footer, "PERFECT:%d  GOOD:%d  BAD:%d  MISS:%d  MAX_COMBO:%d   judge: a-0/b-0   (esc) Pause Menu",
-                score_perfect, score_good, score_bad, score_miss, max_combo);  // 白字透明底
-    else if (strcmp(user_config.language, "zh_cn") == 0)
-        sprintf(footer, "PERFECT:%d  GOOD:%d  BAD:%d  MISS:%d  MAX_COMBO:%d   判定: a-0/b-0   (esc) 暂停菜单",
-                score_perfect, score_good, score_bad, score_miss, max_combo);  // 白字透明底
-    screen_display_text(user_config.height - 1, 0, footer, 15, COLOR_NONE);
 
 
-    // 画窗口边框
-    screen_draw_frame(playing_windows, " Live lanes ", 219);
+// 快慢指示器持续时间（毫秒）
+#define FAST_LATE_DISPLAY_MS 400
+// 快慢指示器状态
+static int fast_late_type = 0;       // 0=fast, 1=late
+static clock_t fast_late_time = 0;   // 上次触发时的 clock() 值
 
-    // 渲染下落 Note
-    update_note();
-
-    // combo提示
-    draw_combo();
-
-    render(1);
+// 记录快慢判定（由 tap_calc_judge 调用）
+static void record_fast_late(int type) {
+    fast_late_type = type;
+    fast_late_time = clock();
 }
+
+// 绘制快慢指示器（如果还在显示窗口内）
+void draw_fast_late(void) {
+    clock_t now = clock();
+    int elapsed_ms = (int)((now - fast_late_time) * 1000 / CLOCKS_PER_SEC);
+    if (elapsed_ms > FAST_LATE_DISPLAY_MS) return;  // 超时不显示
+
+    switch(fast_late_type) {
+        case 0: screen_display_text(fast_late_position[0], fast_late_position[1], "fa", 81, COLOR_NONE);
+                screen_display_text(fast_late_position[0], fast_late_position[1] + 3, "st", 81, COLOR_NONE); break;
+        case 1: screen_display_text(fast_late_position[0], fast_late_position[1], "la", 202, COLOR_NONE);
+                screen_display_text(fast_late_position[0], fast_late_position[1] + 3, "te", 202, COLOR_NONE); break;
+    }
+}
+
+
+
+
+void draw_score(void) {
+    score_caculate();
+    int y = 4;
+    int x = user_config.width - 28;
+    /* ---------- 按位数拆数字 ---------- */
+    int digits[7];
+    int dcount = 0;
+    int temp_score = score;
+
+    if (temp_score == 0) {
+        digits[dcount++] = 0;
+    } else {
+        while (temp_score > 0) {
+            digits[dcount++] = temp_score % 10;
+            temp_score /= 10;
+        }
+    }
+    /* ---------- 绘制数字 ---------- */
+    for (int d = dcount - 1; d >= 0; d--) {
+        int digit = digits[d];
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 3; col++) {
+                screen_set_cell(y + row, x + col, combo_font[digit][row][col], 15, COLOR_NONE);
+            }
+        }
+        // 数字宽3列 + 1列间距
+        x += 4;
+    }
+}
+
 
 
 
@@ -338,7 +362,8 @@ void update_note(void) {
         /* ---------- Hold ---------- */
         } else {
             // MISS 检测：头部超过 BAD 窗口还没被按
-            if (!n->hit && current_ms - n->start_time > JUDGE_BAD_WINDOW) {
+            int diff = current_ms - n->start_time;
+            if (!n->hit && diff > JUDGE_BAD_WINDOW) {
                 n->hit = 1;
                 n->held = 2;
                 n->hit_time = current_ms;
@@ -446,12 +471,41 @@ static int find_hittable_note(int lane) {
 
 
 // 根据时间差返回判定等级
-static JudgeRank tap_calc_judge(int hit_ms) {
+static void tap_calc_judge(int hit_ms) {
     int abs_diff = (hit_ms < 0) ? -hit_ms : hit_ms;
-    if (abs_diff <= JUDGE_PERFECT_WINDOW) return JUDGE_PERFECT;
-    if (abs_diff <= JUDGE_GOOD_WINDOW)    return JUDGE_GOOD;
-    if (abs_diff <= JUDGE_BAD_WINDOW)     return JUDGE_BAD;
-    return JUDGE_MISS;
+    if      (abs_diff <= JUDGE_PERFECT_WINDOW)
+    {
+        score_perfect++; combo++;
+    }
+    else if (abs_diff <= JUDGE_GOOD_WINDOW)
+    {
+        score_good++;    combo++;
+        if (hit_ms > 0) {
+            score_good_fast++;
+            record_fast_late(0);  // fast
+        }
+        else {
+            score_good_late++;
+            record_fast_late(1);  // late
+        }
+    }
+    else if (abs_diff <= JUDGE_BAD_WINDOW)
+    {
+        score_bad++;     combo++;
+        if (hit_ms > 0) {
+            score_bad_fast++;
+            record_fast_late(0);  // fast
+        }
+        else {
+            score_bad_late++;
+            record_fast_late(1);  // late
+        }
+    }
+    // JUDGE_MISS
+    else
+    {
+        score_miss++; combo=0;
+    }
 }
 
 
@@ -468,25 +522,80 @@ static void hit_lane(int lane) {
 
     // 头部判定
     int diff = n->start_time - current_ms;
-    JudgeRank rank = tap_calc_judge(diff);
+    tap_calc_judge(diff);
 
     // Hold 头部按下后标记 held
     if (n->type == NOTE_HOLD) {
         n->held = 1;
     }
 
-    switch (rank) {
-        case JUDGE_PERFECT: score_perfect++; combo++; break;
-        case JUDGE_GOOD:    score_good++;    combo++; break;
-        case JUDGE_BAD:     score_bad++;     combo++; break;
-        case JUDGE_MISS:    score_miss++;    combo = 0; break;
-        default: break;
-    }
     if (combo > max_combo) max_combo = combo;
 }
 
 
-// 选歌页面的输入处理
+
+// 绘制画面&计算
+void update_playing_ui(void) {
+    // header第1行
+    char line0[150];
+    sprintf(line0, "%s", chart_names[selected_chart_num]);
+    screen_display_text(0, 0, line0, 219, COLOR_NONE);  // 粉字透明底
+
+    // header第2行
+    if (strcmp(user_config.language, "en_us") == 0)
+        sprintf(line0, "audio=%s%s.mp3", chart_full_path, chart_names[selected_chart_num]);
+    else if (strcmp(user_config.language, "zh_cn") == 0)
+        sprintf(line0, "音频=%s%s.mp3", chart_full_path, chart_names[selected_chart_num]);
+    screen_display_text(1, 0, line0, 15, COLOR_NONE);  // 白字透明底
+
+    // header&footer直线
+    for(int i = 0; i < user_config.width; i++) {
+        screen_set_cell(2, i, "─", 15, COLOR_NONE);  // 白字透明底
+        screen_set_cell(user_config.height - 2, i, "─", 15, COLOR_NONE);  // 白字透明底
+    }
+
+    // footer第1行
+    char footer[256];
+    if (strcmp(user_config.language, "en_us") == 0)
+        sprintf(footer, "PERFECT:%d  GOOD:%d  BAD:%d  MISS:%d  MAX_COMBO:%d   judge: a-0/b-0   (esc) Pause Menu",
+                score_perfect, score_good, score_bad, score_miss, max_combo);  // 白字透明底
+    else if (strcmp(user_config.language, "zh_cn") == 0)
+        sprintf(footer, "PERFECT:%d  GOOD:%d  BAD:%d  MISS:%d  MAX_COMBO:%d   判定: a-0/b-0   (esc) 暂停菜单",
+                score_perfect, score_good, score_bad, score_miss, max_combo);  // 白字透明底
+    screen_display_text(user_config.height - 1, 0, footer, 15, COLOR_NONE);
+
+
+    // 画窗口边框
+    screen_draw_frame(playing_windows, " Live lanes ", 219);
+
+    // 渲染下落 Note
+    update_note();
+
+    // 快慢指示器
+    draw_fast_late();
+
+    // combo提示
+    draw_combo();
+
+    // 分数提示
+    draw_score();
+
+    // fps指示器
+    if (user_config.show_fps) {
+        fps_display();
+    }
+
+    render(1);
+
+    // 结束退出
+    Note *last = &chart_notes[chart_note_count - 1];
+    int song_end = (last->type == NOTE_HOLD) ? last->end_time : last->start_time;
+    if (get_game_time_ms() - song_end > 2000) game_state = STATE_RESULT;
+}
+
+
+
+// 打歌页面的输入处理
 void handle_playing_input(void) {
     if (_kbhit())
     {
@@ -498,7 +607,6 @@ void handle_playing_input(void) {
         if (key == user_config.key4_4k) hit_lane(3);
         // 按 Esc 暂停
         if (key == 27) {
-            game_start_time = 0;
             audio_exit();
             screen_clear();
             game_state = STATE_SONG_SELECT;
