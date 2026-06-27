@@ -6,6 +6,7 @@
 #include "../global.h"
 #include "../data/renderer.h"
 #include "../data/ascii_letters.h"
+#include "../data/audio_system.h"
 #include "scenes.h"
 
 
@@ -46,7 +47,7 @@ static void draw_combo(void)
     /* ---------- 绘制 COMBO ---------- */
     for (int row = 0; row < 3; row++) {
         for (int col = 0; col < 20; col++) {
-            screen_set_cell(y + row, x + col, combo_logo[row][col], 183, COLOR_NONE
+            screen_set_cell(&screen0, y + row, x + col, combo_logo[row][col], 183, COLOR_NONE
             );
         }
     }
@@ -73,7 +74,7 @@ static void draw_combo(void)
         int digit = digits[d];
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 3; col++) {
-                screen_set_cell(y + row, x + col, combo_font[digit][row][col], 15, COLOR_NONE);
+                screen_set_cell(&screen0, y + row, x + col, combo_font[digit][row][col], 15, COLOR_NONE);
             }
         }
         // 数字宽3列 + 1列间距
@@ -103,10 +104,10 @@ void draw_fast_late(void) {
     if (elapsed_ms > FAST_LATE_DISPLAY_MS) return;  // 超时不显示
 
     switch(fast_late_type) {
-        case 0: screen_display_text(fast_late_position[0], fast_late_position[1], "fa", 81, COLOR_NONE);
-                screen_display_text(fast_late_position[0], fast_late_position[1] + 3, "st", 81, COLOR_NONE); break;
-        case 1: screen_display_text(fast_late_position[0], fast_late_position[1], "la", 202, COLOR_NONE);
-                screen_display_text(fast_late_position[0], fast_late_position[1] + 3, "te", 202, COLOR_NONE); break;
+        case 0: screen_display_text(&screen0, fast_late_position[0], fast_late_position[1], "fa", 81, COLOR_NONE);
+                screen_display_text(&screen0, fast_late_position[0], fast_late_position[1] + 3, "st", 81, COLOR_NONE); break;
+        case 1: screen_display_text(&screen0, fast_late_position[0], fast_late_position[1], "la", 202, COLOR_NONE);
+                screen_display_text(&screen0, fast_late_position[0], fast_late_position[1] + 3, "te", 202, COLOR_NONE); break;
     }
 }
 
@@ -135,7 +136,7 @@ void draw_score(void) {
         int digit = digits[d];
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 3; col++) {
-                screen_set_cell(y + row, x + col, combo_font[digit][row][col], 15, COLOR_NONE);
+                screen_set_cell(&screen0, y + row, x + col, combo_font[digit][row][col], 15, COLOR_NONE);
             }
         }
         // 数字宽3列 + 1列间距
@@ -148,7 +149,9 @@ void draw_score(void) {
 
 // 获取当前游戏进行时间（毫秒）
 static int get_game_time_ms(void) {
-    return (int)((clock() - game_start_time) * 1000 / CLOCKS_PER_SEC);
+    int num = (clock() - game_start_time) * 1000 / CLOCKS_PER_SEC;
+    if (user_config.music_offset < 0) num += user_config.music_offset;
+    return num;
 }
 
 
@@ -178,7 +181,7 @@ static float note_time_to_y(int note_time, int judge_line_y) {
     if (progress > 1.1f) progress = 1.1f;  // 设置>1的正值，令Note出现位置在框外，防止头部渲染问题
 
     int top_y = playing_windows[0][0] + 1;
-    return judge_line_y - progress * (judge_line_y - top_y);
+    return (judge_line_y - progress * (judge_line_y - top_y));
 }
 
 
@@ -188,9 +191,9 @@ static float note_time_to_y(int note_time, int judge_line_y) {
 // half: 0=▄(下半个), 1=▀(上半个), 2=整格(白底空格)
 static void draw_note_cell(int y, int x, int half, int color) {
     if (half == 2) {
-        screen_set_cell(y, x, " ", COLOR_NONE, color);
+        screen_set_cell(&screen0, y, x, " ", COLOR_NONE, color);
     } else {
-        screen_set_cell(y, x, half ? "▀" : "▄", color, COLOR_INHERIT);  // 半格不覆盖背景色
+        screen_set_cell(&screen0, y, x, half ? "▀" : "▄", color, COLOR_INHERIT);  // 半格不覆盖背景色
     }
 }
 
@@ -266,7 +269,7 @@ void draw_hold_body(int lane, int head_row, int tail_row, int color) {
     for (int y = tail_row; y <= head_row; y++) {
         if (y < top_bound || y > bottom_bound) continue;
         for (int x = lane_left_top; x < lane_left_top + user_config.lane_padding; x++) {
-            Cell *cell = &screen.buffer[y][x];
+            Cell *cell = &screen0.buffer[y][x];
             if (color >= 0) cell->bg_color = color;
         }
     }
@@ -315,19 +318,19 @@ void update_note(void) {
 
     // 每帧先清空轨道区域（防止旧 note 残留） >>>如果要绘制背景特效就用screen_clear，这里删掉<<<
     for (int y = top_bound; y <= bot_bound; y++)
-        screen_clear_line_range(y, playing_windows[0][1] + 1, playing_windows[1][1] - 1);
+        screen_clear_line_range(&screen0, y, playing_windows[0][1] + 1, playing_windows[1][1] - 1);
 
     // 画轨道分隔线
     int keys = chart_info.keys;
     for (int y = playing_windows[0][0] + 1; y <= playing_windows[1][0] - 1; y++) {
         for (int key = 0; key <= keys; key++) {
-            screen_set_cell(y, lane_line[0][1] + key * (user_config.lane_padding + 1), "│", 15, COLOR_NONE);  // 灰字透明底
+            screen_set_cell(&screen0, y, lane_line[0][1] + key * (user_config.lane_padding + 1), "│", 15, COLOR_NONE);  // 灰字透明底
         }
     }
 
     // 画判定线
     for (int x = lane_line[0][1]; x <= lane_line[1][1]; x++)
-        screen_set_cell(judge_y, x, "─", 15, COLOR_NONE);
+        screen_set_cell(&screen0, judge_y, x, "─", 15, COLOR_NONE);
 
     if (chart_notes == NULL || chart_note_count == 0) return;
 
@@ -475,10 +478,12 @@ static void tap_calc_judge(int hit_ms) {
     int abs_diff = (hit_ms < 0) ? -hit_ms : hit_ms;
     if      (abs_diff <= JUDGE_PERFECT_WINDOW)
     {
+        tap_sound_effect();  // 打击音效
         score_perfect++; combo++;
     }
     else if (abs_diff <= JUDGE_GOOD_WINDOW)
     {
+        tap_sound_effect();  // 打击音效
         score_good++;    combo++;
         if (hit_ms > 0) {
             score_good_fast++;
@@ -491,6 +496,7 @@ static void tap_calc_judge(int hit_ms) {
     }
     else if (abs_diff <= JUDGE_BAD_WINDOW)
     {
+        tap_sound_effect();  // 打击音效
         score_bad++;     combo++;
         if (hit_ms > 0) {
             score_bad_fast++;
@@ -537,21 +543,23 @@ static void hit_lane(int lane) {
 // 绘制画面&计算
 void update_playing_ui(void) {
     // header第1行
-    char line0[150];
-    sprintf(line0, "%s", chart_names[selected_chart_num]);
-    screen_display_text(0, 0, line0, 219, COLOR_NONE);  // 粉字透明底
+    char line0[150];    if (strcmp(user_config.language, "en_us") == 0)
+        sprintf(line0, "%s    Difficulty: %.2f⭐", chart_names[selected_chart_num], chart_info.star_rating);
+    else if (strcmp(user_config.language, "zh_cn") == 0)
+        sprintf(line0, "%s    难度: %.2f⭐", chart_names[selected_chart_num], chart_info.star_rating);
+    screen_display_text(&screen0, 0, 0, line0, 219, COLOR_NONE);  // 粉字透明底
 
     // header第2行
     if (strcmp(user_config.language, "en_us") == 0)
         sprintf(line0, "audio=%s%s.mp3", chart_full_path, chart_names[selected_chart_num]);
     else if (strcmp(user_config.language, "zh_cn") == 0)
         sprintf(line0, "音频=%s%s.mp3", chart_full_path, chart_names[selected_chart_num]);
-    screen_display_text(1, 0, line0, 15, COLOR_NONE);  // 白字透明底
+    screen_display_text(&screen0, 1, 0, line0, 15, COLOR_NONE);  // 白字透明底
 
     // header&footer直线
     for(int i = 0; i < user_config.width; i++) {
-        screen_set_cell(2, i, "─", 15, COLOR_NONE);  // 白字透明底
-        screen_set_cell(user_config.height - 2, i, "─", 15, COLOR_NONE);  // 白字透明底
+        screen_set_cell(&screen0, 2, i, "─", 15, COLOR_NONE);  // 白字透明底
+        screen_set_cell(&screen0, user_config.height - 2, i, "─", 15, COLOR_NONE);  // 白字透明底
     }
 
     // footer第1行
@@ -562,11 +570,11 @@ void update_playing_ui(void) {
     else if (strcmp(user_config.language, "zh_cn") == 0)
         sprintf(footer, "PERFECT:%d  GOOD:%d  BAD:%d  MISS:%d  MAX_COMBO:%d   判定: a-0/b-0   (esc) 暂停菜单",
                 score_perfect, score_good, score_bad, score_miss, max_combo);  // 白字透明底
-    screen_display_text(user_config.height - 1, 0, footer, 15, COLOR_NONE);
+    screen_display_text(&screen0, user_config.height - 1, 0, footer, 15, COLOR_NONE);
 
 
     // 画窗口边框
-    screen_draw_frame(playing_windows, " Live lanes ", 219);
+    screen_draw_frame(&screen0, playing_windows, " Live lanes ", 219);
 
     // 渲染下落 Note
     update_note();
@@ -585,12 +593,25 @@ void update_playing_ui(void) {
         fps_display();
     }
 
-    render(1);
+    // 转场
+    if (play_transition_animation) {transition_animation_fade_out(); play_transition_animation = 0;}
+
+    render(&screen0, 1);
 
     // 结束退出
     Note *last = &chart_notes[chart_note_count - 1];
     int song_end = (last->type == NOTE_HOLD) ? last->end_time : last->start_time;
-    if (get_game_time_ms() - song_end > 2000) game_state = STATE_RESULT;
+    if (get_game_time_ms() - song_end > 2000) {
+        // 释放谱面
+        free(chart_notes);
+        chart_notes = NULL;
+
+        // 转场
+        play_transition_animation = 1;
+        transition_animation_fade_in(); SLEEP_MS(600);
+
+        game_state = STATE_RESULT;
+    }
 }
 
 
@@ -607,8 +628,16 @@ void handle_playing_input(void) {
         if (key == user_config.key4_4k) hit_lane(3);
         // 按 Esc 暂停
         if (key == 27) {
+            // 释放谱面
+            free(chart_notes);
+            chart_notes = NULL;
+
             audio_exit();
-            screen_clear();
+
+            // 转场
+            play_transition_animation = 1;
+            transition_animation_fade_in(); SLEEP_MS(600);
+
             game_state = STATE_SONG_SELECT;
         }
     }

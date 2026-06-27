@@ -544,7 +544,7 @@ void display_char(int x, int y, char ch, int fg_color, int bg_color) {
             // 计算在行中的位置（考虑行步长）
             char pixel = data[row * (width + 1) + col];  // width+1 是因为有null终止符
             if (pixel == '1') {
-                screen_set_cell(y + row, x + col, " ", fg_color, bg_color);
+                screen_set_cell(&screen0, y + row, x + col, " ", fg_color, bg_color);
             }
         }
     }

@@ -1,19 +1,22 @@
 #pragma once
 
 
+
+// 欢迎界面
 void update_welcome_ui(void);
 void handle_welcome_input(void);
 
 
 
-// 初始化选歌界面窗口布局
+// 选歌界面
 void init_song_select_windows(void);
 void update_song_select_ui(void);
 void handle_song_select_input(void);
+void get_chart_info_all(void);
 
 
 
-// 初始化打歌界面窗口布局
+// 打歌界面
 void init_playing_windows(void);
 void reset_playing_state(void);
 void update_playing_ui(void);

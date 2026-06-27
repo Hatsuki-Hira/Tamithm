@@ -26,6 +26,7 @@ typedef struct {
     int judge_line_position;
 
     int music_offset;
+    int judge_offset;
 
     char key1_4k;
     char key2_4k;
@@ -38,7 +39,7 @@ extern Config user_config;
 
 
 
-// 游戏页面状态机
+// 游戏页面
 typedef enum {
     STATE_WELCOME,     // 欢迎动画
     STATE_SONG_SELECT, // 选歌
@@ -50,6 +51,15 @@ typedef enum {
     STATE_EXIT         // 退出
 } GameState;
 extern GameState game_state;
+
+
+
+// Menu列表（单选）状态机
+typedef enum {
+    Charts,
+    Settings
+} MenuRadioButton;
+extern MenuRadioButton menu_radio_button;
 
 
 
@@ -73,27 +83,36 @@ typedef struct
 
 
 
+// 屏幕缓冲区
 typedef struct
 {
     Cell **buffer;
 } Screen;
-extern Screen screen;
+extern Screen screen0;
+extern Screen screen1;
+extern Screen temp;
+
+
+// 是否播放转场动画
+extern int play_transition_animation;
 
 
 // config 保存配置
 void config_save(void);
 
+
+
+// 帧率计数器
 extern int fps;
 extern float input_delay;
 void fps_update(void);
 void fps_display(void);
 
+
+
 // -------------------------------------
 //           谱面相关全局定义
 // -------------------------------------
-// 播放音频
-void audio_exit(void);
-
 #define MAX_CHARTS 128
 #define CHART_NAME_MAX 256
 
@@ -102,10 +121,13 @@ extern char chart_names[MAX_CHARTS][CHART_NAME_MAX];  // 谱面名字数组
 extern char chart_full_path[256];  // 谱面目录绝对路径
 
 
+// 谱面游玩前的空白准备时间
+#define START_RELAY_MS 1500
 
-// 加载铺面
+
+// 扫描铺面
 void scan_charts_list(void);
-// 加载谱面所有内容(info note star_rating)
+// 加载谱面
 void load_chart(void);
 
 // 谱面信息

@@ -129,7 +129,7 @@ int osu_load_notes(
         Note *note = &notes[count];
 
         note->lane = osu_x_to_lane(x, keys);
-        note->start_time = time;
+        note->start_time = time + START_RELAY_MS;
 
         if (type == 128) {
             // Hold Note
@@ -137,7 +137,7 @@ int osu_load_notes(
             int end_time = (parsed >= 6) ? parse_hold_endtime(extra) : -1;
             if (end_time < time)
                 end_time = time + 500;  // 保底长度(似乎可以去掉了，短Hold没问题)
-            note->end_time = end_time;
+            note->end_time = end_time + START_RELAY_MS;
 
             // 尾判算一个物量，补偿一个
             temp_all_note_count++;

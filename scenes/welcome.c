@@ -9,9 +9,15 @@
 
 // 开屏游戏名
 void update_welcome_ui(void) {
-    display_text(user_config.width * 0.4, user_config.height * 0.4, "Tamithm", 0, 15);
-    render(1);
+    display_text(user_config.width * 0.5 - 15, user_config.height * 0.5 - 2, "Tamithm", 0, 15);
+    screen_display_text(&screen0, user_config.height * 0.5 + 8, user_config.width * 0.5 - 8, "<Press any key to start>", 7, COLOR_NONE);
+
+    // 转场
+    if (play_transition_animation) {transition_animation_fade_out(); play_transition_animation = 0;}
+
+    render(&screen0, 1);
 }
+                
 
 
 // 标题页面的输入处理
@@ -25,9 +31,10 @@ void handle_welcome_input(void) {
             game_state = STATE_EXIT;
         }
         else {
-            screen_clear();
-            render(0);
-            SLEEP_MS(100);
+            // 转场
+            play_transition_animation = 1;
+            transition_animation_fade_in(); SLEEP_MS(600);
+
             game_state = STATE_SONG_SELECT;
         }
     }

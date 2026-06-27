@@ -4,6 +4,7 @@
 #include "../global.h"
 #include "../data/renderer.h"
 #include "../data/ascii_letters.h"
+#include "../data/audio_system.h"
 
 
 
@@ -13,7 +14,8 @@ int level = 0;
 
 void score_caculate(void) {
     acc = (score_perfect * JUDGE_PERFECT_HEAVY + score_good * JUDGE_GOOD_HEAVY + score_bad * JUDGE_BAD_HEAVY) / all_note_count;
-    score = (int)(acc * 900000.0f) + 100000 * max_combo / all_note_count;
+    //score = (int)(acc * 900000.0f) + 100000 * max_combo / all_note_count;
+    score = (int)(acc * 1000000.0f);
     if (score > 1000000) score = 1000000;
 }
 
@@ -28,7 +30,7 @@ void level_caculate(void) {
 }
 
 void update_result_ui(void) {
-    screen_clear();
+    screen_clear(&screen0);
     SLEEP_MS(400);
 
     int y = user_config.height / 3;
@@ -41,7 +43,7 @@ void update_result_ui(void) {
     /* ---------- 绘制等级 ---------- */
     for (int row = 0; row < 3; row++) {
         for (int col = 0; col < 5; col++) {
-            screen_set_cell(y + row, x + col, level_font[level][row][col], 15, COLOR_NONE);
+            screen_set_cell(&screen0, y + row, x + col, level_font[level][row][col], 15, COLOR_NONE);
         }
     }
     // 等级宽5列 + 1列间距
@@ -80,7 +82,7 @@ void update_result_ui(void) {
     sprintf(line[10], " ");
     sprintf(line[11], "<press Enter to continue>");
     for (int i = 0; i < 12; i++) {
-        screen_display_text(y + 5 + i, x, line[i], 7, COLOR_NONE);
+        screen_display_text(&screen0, y + 5 + i, x, line[i], 7, COLOR_NONE);
     }
 
     /* ---------- 绘制数字 ---------- */
@@ -88,14 +90,17 @@ void update_result_ui(void) {
         int digit = digits[d];
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 3; col++) {
-                screen_set_cell(y + row, x + col, combo_font[digit][row][col], 15, COLOR_NONE);
+                screen_set_cell(&screen0, y + row, x + col, combo_font[digit][row][col], 15, COLOR_NONE);
             }
         }
         // 数字宽3列 + 1列间距
         x += 4;
     }
 
-    render(0);
+    // 转场
+    if (play_transition_animation) {transition_animation_fade_out(); play_transition_animation = 0;}
+
+    render(&screen0, 1);
 }
 
 
@@ -107,7 +112,11 @@ void handle_result_input(void) {
         // 按 Enter 继续
         if (key == 13) {
             audio_exit();
-            screen_clear();
+
+            // 转场
+            play_transition_animation = 1;
+            transition_animation_fade_in(); SLEEP_MS(600);
+
             game_state = STATE_SONG_SELECT;
         }
     }

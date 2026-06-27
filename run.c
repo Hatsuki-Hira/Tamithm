@@ -5,6 +5,7 @@
 #include "global.h"
 #include "data/renderer.h"
 #include "scenes/scenes.h"
+#include "data/audio_system.h"
 
 
 
@@ -31,6 +32,8 @@ int score_bad_late = 0;
 int score_miss = 0;
 int combo = 0;
 int max_combo = 0;
+
+int play_transition_animation = 0;
 
 
 
@@ -87,6 +90,7 @@ int config_init(void)
     fscanf(fp, "judge_line_position=%d\n", &user_config.judge_line_position);
 
     fscanf(fp, "music_offset=%d\n", &user_config.music_offset);
+    fscanf(fp, "judge_offset=%d\n", &user_config.judge_offset);
     
     fscanf(fp, "key1_4k=%c\n", &user_config.key1_4k);
     fscanf(fp, "key2_4k=%c\n", &user_config.key2_4k);
@@ -115,6 +119,7 @@ void config_save(void)
     fprintf(fp, "judge_line_position=%d\n", user_config.judge_line_position);
 
     fprintf(fp, "music_offset=%d\n", user_config.music_offset);
+    fprintf(fp, "judge_offset=%d\n", user_config.judge_offset);
 
     fprintf(fp, "key1_4k=%c\n", user_config.key1_4k);
     fprintf(fp, "key2_4k=%c\n", user_config.key2_4k);
@@ -133,63 +138,6 @@ char chart_full_path[256];
 void get_charts_path(char *out, int out_size) {
     char rel[64] = "charts\\";
     GetFullPathName(rel, out_size, out, NULL);
-}
-
-
-
-// 音频库
-#include "data/stb_vorbis.inc"  // stb_vorbis 类型声明 + 实现（仅此 TU 编译一次）
-#define MINIAUDIO_IMPLEMENTATION
-#include "data/miniaudio.h"
-
-
-ma_engine engine;
-ma_sound game_sound;
-ma_result result;
-int audio_init(void)
-{
-    result = ma_engine_init(NULL, &engine);
-    if (result != MA_SUCCESS) {
-        return -1;
-    }
-}
-
-int audio_play(void)
-{
-    char filepath[512];
-
-    // 尝试 .mp3
-    sprintf(filepath, "%s%s.mp3", chart_full_path, chart_names[selected_chart_num]);
-    result = ma_sound_init_from_file(&engine, filepath, 0, NULL, NULL, &game_sound);
-    if (result == MA_SUCCESS) {
-        // 如果 music_offset > 0，则延迟指定毫秒后开始播放
-        if (user_config.music_offset > 0) {
-            ma_uint64 now = ma_engine_get_time_in_milliseconds(&engine);
-            ma_sound_set_start_time_in_milliseconds(&game_sound, now + user_config.music_offset);
-        }
-        ma_sound_start(&game_sound);
-        return 0;
-    }
-
-    // 尝试 .ogg
-    sprintf(filepath, "%s%s.ogg", chart_full_path, chart_names[selected_chart_num]);
-    result = ma_sound_init_from_file(&engine, filepath, 0, NULL, NULL, &game_sound);
-    if (result == MA_SUCCESS) {
-        if (user_config.music_offset > 0) {
-            ma_uint64 now = ma_engine_get_time_in_milliseconds(&engine);
-            ma_sound_set_start_time_in_milliseconds(&game_sound, now + user_config.music_offset);
-        }
-        ma_sound_start(&game_sound);
-        return 0;
-    }
-
-    return -1;
-}
-
-void audio_exit(void)
-{
-    ma_sound_uninit(&game_sound);
-    ma_engine_uninit(&engine);
 }
 
 
@@ -228,13 +176,14 @@ void fps_display(void) {
     char line[2][10] = {" "};
     sprintf(line[0],  "%3dfps", fps);
     sprintf(line[1],  "%4.1fms", input_delay);
-    screen_display_text(user_config.height - 2, user_config.width - 6, line[0], 0, 112);
-    screen_display_text(user_config.height - 1, user_config.width - 6, line[1], 0, 112);
+    screen_display_text(&screen0, user_config.height - 2, user_config.width - 6, line[0], 0, 112);
+    screen_display_text(&screen0, user_config.height - 1, user_config.width - 6, line[1], 0, 112);
 }
 
 
+
 // 主进程
-Screen screen;
+Screen screen0;
 GameState game_state;
 int main() {
 
@@ -249,18 +198,17 @@ int main() {
     init_terminal();  // 初始化终端
     get_terminal_size(&user_config.width, &user_config.height);  // 获取终端尺寸
 
-    screen_init();  // 初始化屏幕缓冲区
-    init_song_select_windows();  //初始化选歌界面的布局
+    screen_init(&screen0);  // 初始化屏幕缓冲区
+    init_song_select_windows();  //初始化选歌界面的布局和数据
     init_playing_windows();  //初始化游玩界面的布局
 
     fps_caculate_init();
 
-    // 谱面初始化
+    // 谱面列表初始化
     scan_charts_list();  // 加载谱面列表
     get_charts_path(chart_full_path, sizeof(chart_full_path));
-
-    // 第一次加载铺面，显示简要信息
-    load_chart();
+    // 获取第一首谱面的信息
+    get_chart_info_all();
 
     // 展示欢迎界面
     game_state = STATE_WELCOME;
@@ -268,8 +216,9 @@ int main() {
 
     // 主程序入口
     while(game_state != STATE_EXIT) {
+        screen_free(&screen0);  // 释放屏幕缓冲区
         get_terminal_size(&user_config.width, &user_config.height);
-        screen_init();  // 初始化屏幕缓冲区
+        screen_init(&screen0);  // 初始化屏幕缓冲区
         init_song_select_windows();  //初始化选歌界面的布局
         init_playing_windows();  //初始化轨道的布局
 
@@ -287,18 +236,13 @@ int main() {
                 break;
 
             case STATE_PLAYING:
-                // 初始化
+                // 进入谱面初始化
                 if (game_start_time == 0) {
-                    // 播放音频
-                    audio_init();
-                    audio_play();
-
                     reset_playing_state();  // 重置打击索引
                     for (int i = 0; i < chart_note_count; i++) {
                         chart_notes[i].hit = 0;
                         chart_notes[i].held = 0;
                     }
-                    game_start_time = clock();  // 启动计时器
                     score_perfect = 0;
                     score_good = 0;
                     score_good_fast = 0;
@@ -309,6 +253,13 @@ int main() {
                     score_miss = 0;
                     combo = 0;
                     max_combo = 0;
+
+                    // 音频初始化
+                    audio_init();
+                    // 播放音频
+                    audio_play_song();
+                    // 启动计时器
+                    game_start_time = clock();
                 }
                 // 游戏逻辑更新
                 update_playing_ui();
@@ -330,7 +281,7 @@ int main() {
         }
     }
 
-    screen_free();  // 释放屏幕缓冲区
+    screen_free(&screen0);  // 释放屏幕缓冲区
     reset_terminal();  // 释放终端
     return 0;
 }
