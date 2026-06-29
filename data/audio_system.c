@@ -2,7 +2,7 @@
 #include "../global.h"
 
 // 音频库
-#include "miniaudio/stb_vorbis.inc"
+#include "miniaudio/stb_vorbis.c"
 #define MINIAUDIO_IMPLEMENTATION
 #include "miniaudio/miniaudio.h"
 
