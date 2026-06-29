@@ -15,7 +15,7 @@ int level = 0;
 void score_caculate(void) {
     acc = (score_perfect * JUDGE_PERFECT_HEAVY + score_good * JUDGE_GOOD_HEAVY + score_bad * JUDGE_BAD_HEAVY) / all_note_count;
     //score = (int)(acc * 900000.0f) + 100000 * max_combo / all_note_count;
-    score = (int)(acc * 1000000.0f);
+    score = (int)(acc * 950000.0f) + 50000 * max_combo / all_note_count;
     if (score > 1000000) score = 1000000;
 }
 

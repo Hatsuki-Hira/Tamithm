@@ -21,12 +21,41 @@
 | 延迟调整 | ➡️ | 正在实现 |
 | 上隐 | ➡️ | 正在实现 |
 | Autoplay | ❌ | 咕咕咕 |
+| 主题功能 | ❌ | 咕咕咕 |
 
 ## 编译
 项目主目录执行
 ```
 cd .\Tamithm
 gcc -g .\*.c .\scenes\*.c .\data\*.c -o .\run.exe
+```
+
+## 文件结构
+```
+Tamithm/
+├── data/   # 主程序
+│   ├── miniaudio/         # 音频库头文件
+│   │   └── ...
+│   ├── renderer.c         # 终端TUI渲染
+│   ├── audio_system.c     # 音频系统
+│   ├── osu_compatible.c   # 游戏osu!谱面文件兼容
+│   ├── rating_caculate.c  # 谱面难度算法
+│   └── ...
+├── scenes/   # 显示界面(场景)划分
+│   ├── scenes.h         # 入口头文件
+│   ├── welcome.c        # 欢迎界面
+│   ├── song_select.c    # 关卡选择菜单/设置菜单
+│   ├── playing.c        # 游玩界面
+│   ├── result.c         # 结算界面
+│   └── ...
+├── charts/   # 谱面存放位置
+│   └── ...
+├── sounds/   # 音效
+│   └── ...
+├── run.c      # 程序入口
+├── global.h   # 各种全局参数
+├── userdata   # 用户数据
+└── README.md
 ```
 
 ## 使用项目

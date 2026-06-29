@@ -430,10 +430,10 @@ void handle_song_select_input(void) {
                 key = _getch();  // 特殊键，取扫描码
             }
             switch (selected_setting_num) {
-                case 5: user_config.key1_4k = (char)key; break;
-                case 6: user_config.key2_4k = (char)key; break;
-                case 7: user_config.key3_4k = (char)key; break;
-                case 8: user_config.key4_4k = (char)key; break;
+                case 6: user_config.key1_4k = (char)key; break;
+                case 7: user_config.key2_4k = (char)key; break;
+                case 8: user_config.key3_4k = (char)key; break;
+                case 9: user_config.key4_4k = (char)key; break;
             }
             key_capture_mode = 0;
             return;
