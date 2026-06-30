@@ -1,5 +1,5 @@
 /.vscode
 /#backup*
 /charts_source*
-/charts*
+/charts/*
 /test*
