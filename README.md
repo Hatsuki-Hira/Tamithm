@@ -1,6 +1,7 @@
+
 # Tamithm
 
-这是一个由纯c编写的终端下落式音乐游戏，目前只有4K模式可以游玩
+一个由纯 C 编写的终端下落式音乐游戏，目前仅支持 4K 模式。
 
 ## 使用
 终端运行run.exe即可，进入游戏标题页面 **按下任意按键** 进入游戏，按esc可以返回上一页面，在标题页面按esc可退出
@@ -61,3 +62,7 @@ Tamithm/
 ## 使用项目
 - miniaudio 音频库
   - https://github.com/mackron/miniaudio
+
+> **Author:** [Hatsuki-Hira](https://github.com/Hatsuki-Hira)  
+> **License:** [MIT](./LICENSE)  
+> **Repository:** [github.com/Hatsuki-Hira/Tamithm](https://github.com/Hatsuki-Hira/Tamithm)
